@@ -1183,13 +1183,14 @@ For a fresh chat picking up §10:
       in `pitch.md` is solid prep; the actual slides don't exist
       yet. Google Slides / Keynote / Pitch.com. Cold-open hook =
       photo of crumpled paper delivery notes (from the brief FAQ).
-- [ ] **11.E — Compliance alert on `/procurement/dashboard`
-      (Dev B lane).** Hardcoded amber card at top of the dashboard
-      ("3 Bestellungen ohne Rahmenvertrag diesen Monat — prüfen →").
-      Moves Anna Keller from "data is shown" to "decisions are
-      surfaced." The pitch will openly call it a mock; the live
-      framework-compliance gate would join `approval_rules` against
-      a supplier-framework table.
+- [x] **11.E — Compliance alert on `/procurement/dashboard`
+      (Dev B lane).** Hardcoded amber card landed at the top of the
+      dashboard ("3 orders this month went to non-framework
+      suppliers — Review queue →") with an explicit "mocked
+      compliance gate" subtitle so the pitch can own that it's a
+      placeholder. Copy keys `dashboard.alert_{title,body,cta}` in
+      `copy.en.ts`. Sits above the supplier/group bars; CTA links
+      to `/procurement/queue`.
 - [ ] **11.F — Stopwatch screencast (E1) recorded against a
       *populated* DB** *(user task)*. Target: sub-30 s reorder.
       Tool: OBS. Save as `demo/reorder-stopwatch.mp4`. Without
@@ -1203,11 +1204,11 @@ For a fresh chat picking up §10:
       50k SKUs?" → pgvector + per-trade narrowing + procurement
       curation. Pre-empts the "your prompt sends the whole catalog
       to OpenAI" question that scrapes 9/10 procurement-ML pitches.
-- [ ] **11.H — Refresh canned delivery-note timestamp (Dev B
-      lane).** `lib/canned/delivery-note.ts` currently has
-      `delivery_date: "2026-05-21"`. Bump to today's demo date so
-      a judge scrutinising the fallback doesn't spot the
-      discrepancy.
+- [x] **11.H — Refresh canned delivery-note timestamp (Dev B
+      lane).** Bumped `delivery_date` (and the date inside the
+      `order_ref`) in `lib/canned/delivery-note.ts` from
+      `2026-05-21` to `2026-05-22` so the OCR fallback presents a
+      same-day timestamp on stage.
 
 ### 11.5 Explicit non-goals (do NOT re-propose these)
 

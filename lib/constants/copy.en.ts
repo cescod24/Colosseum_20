@@ -29,6 +29,10 @@ export const copyEn: Copy = {
   "dashboard.by_foreman": "Top foremen by spend",
   "dashboard.foreman": "Foreman",
   "dashboard.spend": "Spend",
+  "dashboard.alert_title": "3 orders this month went to non-framework suppliers",
+  "dashboard.alert_body":
+    "Mocked compliance gate: a live version would join approval_rules to a supplier-framework table and surface every non-framework order here within the polling window.",
+  "dashboard.alert_cta": "Review queue",
 
   "queue.title": "Pending approvals",
   "queue.empty": "No pending orders. Foremen will land here when an order trips a rule.",

@@ -7,9 +7,9 @@ import type { DeliveryNoteExtract } from "@/lib/schema";
 // the confidence floor and flips the order to 'delivered'.
 
 export const CANNED_DELIVERY_NOTE: DeliveryNoteExtract = {
-  order_ref: "LS-2026-05-21-A4F1",
+  order_ref: "LS-2026-05-22-A4F1",
   supplier_name: "Würth",
-  delivery_date: "2026-05-21",
+  delivery_date: "2026-05-22",
   line_count: 4,
   confidence: 0.92,
 };

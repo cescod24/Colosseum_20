@@ -186,6 +186,20 @@ export default async function DashboardPage() {
         </p>
       </header>
 
+      <article className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mt-0.5 h-2 w-2 flex-none rounded-full bg-amber-500"></div>
+        <div className="flex-1 space-y-1">
+          <p className="font-semibold">{copyEn["dashboard.alert_title"]}</p>
+          <p>{copyEn["dashboard.alert_body"]}</p>
+        </div>
+        <a
+          href="/procurement/queue"
+          className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-900 hover:border-amber-500"
+        >
+          {copyEn["dashboard.alert_cta"]}
+        </a>
+      </article>
+
       <article className="space-y-3 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
         <h2 className="text-base font-semibold text-zinc-900">
           {copyEn["dashboard.by_supplier"]}
