@@ -7,9 +7,10 @@ export type OrderStatus =
   | "pending"
   | "approved"
   | "ordered"
-  | "delivered";
+  | "delivered"
+  | "rejected";
 
-const STAGES: ReadonlyArray<{ key: OrderStatus; label: string }> = [
+const STAGES: ReadonlyArray<{ key: Exclude<OrderStatus, "rejected">; label: string }> = [
   { key: "draft", label: "Entwurf" },
   { key: "pending", label: "Wartet" },
   { key: "approved", label: "Freigegeben" },
@@ -23,6 +24,9 @@ const FILLED_INDEX: Record<OrderStatus, number> = {
   approved: 2,
   ordered: 3,
   delivered: 4,
+  // Rejected stops at the pending segment but recolours rose to read as
+  // terminal — see tone(); it's not on the happy-path progression.
+  rejected: 1,
 };
 
 function tone(status: OrderStatus) {
@@ -35,6 +39,8 @@ function tone(status: OrderStatus) {
       return { fill: "bg-emerald-500", text: "text-emerald-700" };
     case "delivered":
       return { fill: "bg-emerald-600", text: "text-emerald-700" };
+    case "rejected":
+      return { fill: "bg-rose-500", text: "text-rose-700" };
     default:
       return { fill: "bg-zinc-400", text: "text-zinc-600" };
   }

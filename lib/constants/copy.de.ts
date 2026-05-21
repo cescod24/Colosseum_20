@@ -43,6 +43,7 @@ export const copyDe: Copy = {
   "orders.status.approved": "Freigegeben",
   "orders.status.ordered": "Bestellt",
   "orders.status.delivered": "Geliefert",
+  "orders.status.rejected": "Abgelehnt",
   "orders.items": "{count} Positionen",
 
   "nav.role_switch": "Rolle wechseln",
