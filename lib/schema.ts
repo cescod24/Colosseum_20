@@ -254,3 +254,62 @@ export const decideOrderLinesInputSchema = z.object({
 
 export type DecideOrderLineInput = z.infer<typeof decideOrderLineSchema>;
 export type DecideOrderLinesInput = z.infer<typeof decideOrderLinesInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Conversational assistant (extends /api/voice) — POST /api/voice
+// ---------------------------------------------------------------------------
+// The route now accepts EITHER:
+//   - multipart/form-data with `audio` (Whisper transcribes), or
+//   - JSON { text, history?, project_id?, cart? } when the user typed instead.
+// The server adds rich project context (catalog summary, current cart, last
+// order, kits, threshold, blocklist hint) to the system prompt, plus up to 4
+// prior turns when `history` is provided. The model returns AssistantReply;
+// the route resolves SKUs to product_id before responding.
+
+export const aiAssistantItemSchema = z.object({
+  supplier_sku: z.string().min(1),
+  qty: z.number().int().positive().max(999),
+});
+
+export const aiAssistantReplySchema = z.object({
+  /** Short conversational German reply shown to the foreman. */
+  reply: z.string().min(1).max(600),
+  intent: z.enum(["order", "suggest", "ask", "clarify", "remove", "none"]),
+  items: z.array(aiAssistantItemSchema).max(8).default([]),
+  alternatives: z.array(aiAssistantItemSchema).max(5).default([]),
+  removals: z.array(z.string().min(1)).max(8).default([]),
+  follow_up: z.string().min(1).max(200).nullable().default(null),
+});
+
+export const assistantItemSchema = z.object({
+  product_id: z.string().uuid(),
+  supplier_sku: z.string().min(1),
+  name: z.string().min(1),
+  unit: z.string().min(1),
+  qty: z.number().int().positive(),
+});
+
+export const assistantTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().min(1),
+});
+
+export const assistantResponseSchema = z.object({
+  transcript: z.string(),
+  reply: z.string(),
+  intent: z.enum(["order", "suggest", "ask", "clarify", "remove", "none"]),
+  items: z.array(assistantItemSchema).max(8),
+  alternatives: z.array(assistantItemSchema).max(5),
+  removals: z.array(z.string().min(1)).max(8),
+  unmatched: z.array(voiceUnmatchedSchema).max(8),
+  follow_up: z.string().nullable(),
+  canned: z.boolean().optional(),
+  redirect: z.boolean().optional(),
+  message: z.string().optional(),
+});
+
+export type AiAssistantItem = z.infer<typeof aiAssistantItemSchema>;
+export type AiAssistantReply = z.infer<typeof aiAssistantReplySchema>;
+export type AssistantItem = z.infer<typeof assistantItemSchema>;
+export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
+export type AssistantResponse = z.infer<typeof assistantResponseSchema>;

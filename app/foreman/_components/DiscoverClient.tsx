@@ -17,7 +17,9 @@ import {
 } from "@/lib/schema";
 
 import { CategoryGrid } from "./CategoryGrid";
-import { CartBar } from "./CartBar";
+import { BottomNavBar } from "./BottomNavBar";
+import { CartSheet } from "./CartSheet";
+import { AssistantSheet } from "./AssistantSheet";
 import { VoiceSearch } from "./VoiceSearch";
 
 type CartLine = { product_id: string; qty: number };
@@ -81,6 +83,8 @@ export function DiscoverClient({ projectId, catalog }: Props) {
   // Initial state matches SSR ([]). After the first client paint reproduces
   // the server HTML, the mount effect hydrates from localStorage.
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(
     null,
   );
@@ -136,6 +140,28 @@ export function DiscoverClient({ projectId, catalog }: Props) {
       next[idx] = { product_id, qty: next[idx].qty + qty };
       return next;
     });
+  }
+
+  function setQty(product_id: string, qty: number) {
+    setCart((prev) => {
+      if (qty <= 0) return prev.filter((l) => l.product_id !== product_id);
+      const idx = prev.findIndex((l) => l.product_id === product_id);
+      if (idx === -1) return [...prev, { product_id, qty }];
+      const next = [...prev];
+      next[idx] = { product_id, qty };
+      return next;
+    });
+  }
+
+  function removeFromCart(supplier_sku_or_product_id: string) {
+    setCart((prev) =>
+      prev.filter((l) => {
+        const p = productById.get(l.product_id);
+        if (p?.supplier_sku === supplier_sku_or_product_id) return false;
+        if (l.product_id === supplier_sku_or_product_id) return false;
+        return true;
+      }),
+    );
   }
 
   const runSearch = useCallback(
@@ -402,12 +428,50 @@ export function DiscoverClient({ projectId, catalog }: Props) {
 
       <div className="flex-1" />
 
-      <CartBar
+      <BottomNavBar
+        currentPath="/foreman/discover"
+        cartCount={cart.reduce((s, l) => s + l.qty, 0)}
+        onCartTap={() => setCartOpen(true)}
+        onAssistantTap={() => setAssistantOpen(true)}
+      />
+
+      <CartSheet
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        productById={
+          new Map(
+            catalog.map((p) => [
+              p.product_id,
+              {
+                id: p.product_id,
+                supplier_sku: p.supplier_sku,
+                name: p.name,
+                unit: p.unit,
+                unit_price: p.unit_price,
+                product_group: p.product_group,
+                hazardous: false,
+              },
+            ]),
+          )
+        }
         total={total}
-        itemCount={cart.reduce((s, l) => s + l.qty, 0)}
         state={submitState}
         online={true}
-        onSubmit={onSubmit}
+        onChangeQty={setQty}
+        onSubmit={() => {
+          setCartOpen(false);
+          onSubmit();
+        }}
+      />
+
+      <AssistantSheet
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        addToCart={addToCart}
+        removeFromCart={removeFromCart}
+        projectId={projectId}
+        cart={cart}
       />
     </div>
   );

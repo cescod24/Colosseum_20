@@ -10,7 +10,7 @@
 // UUIDs from the seeded catalog (when the DB is available) or from
 // `fallbackCatalog()` in /api/discover when there's no DB.
 
-import type { AiVoiceResponse } from "../schema";
+import type { AiAssistantReply, AiVoiceResponse } from "../schema";
 
 /** Default transcript handed back when transcribeAudio falls back. */
 export const CANNED_VOICE_TRANSCRIPT =
@@ -74,4 +74,106 @@ export function cannedVoiceFor(transcript: string): AiVoiceResponse {
     if (hit.matches.some((needle) => t.includes(needle))) return hit.response;
   }
   return DEFAULT_RESPONSE;
+}
+
+// ---------------------------------------------------------------------------
+// Canned assistant replies (richer shape — see lib/schema.ts:aiAssistantReply)
+// ---------------------------------------------------------------------------
+// Used when OPENAI_API_KEY is missing or the live chat completion errored.
+// Each entry returns a conversational German reply alongside the items.
+
+type CannedAssistantHit = {
+  matches: readonly string[];
+  response: AiAssistantReply;
+};
+
+const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
+  {
+    matches: ["schrauben tx25", "tx25", "schrauben"],
+    response: {
+      reply:
+        "Klar — zehn Schrauben TX25 sechs mal achtzig, zwei Rollen Panzertape und einen 8 mm Bohrer leg ich dir in den Warenkorb. Brauchst du noch Dübel dazu?",
+      intent: "order",
+      items: [
+        { supplier_sku: "C003", qty: 10 },
+        { supplier_sku: "C027", qty: 2 },
+        { supplier_sku: "C034", qty: 1 },
+      ],
+      alternatives: [{ supplier_sku: "C005", qty: 50 }],
+      removals: [],
+      follow_up: "Brauchst du Dübel zu den Schrauben?",
+    },
+  },
+  {
+    matches: ["handschuhe", "gehörschutz", "ppe-set", "psa", "neuer mitarbeiter"],
+    response: {
+      reply:
+        "Für einen neuen Mitarbeiter pack ich dir Helm, Gehörschutz, vier Paar Handschuhe, Warnweste und Schutzbrille ein — das ist unser PPE-Set.",
+      intent: "order",
+      items: [
+        { supplier_sku: "C019", qty: 4 },
+        { supplier_sku: "C022", qty: 4 },
+        { supplier_sku: "C021", qty: 2 },
+        { supplier_sku: "C024", qty: 2 },
+      ],
+      alternatives: [],
+      removals: [],
+      follow_up: null,
+    },
+  },
+  {
+    matches: ["silikon", "abdichten", "fenster", "reinigungsalkohol"],
+    response: {
+      reply:
+        "Zum Fenster abdichten brauchst du Silikon transparent, Reinigungsalkohol zum Entfetten und Panzertape zum Abkleben. Reichen drei Tuben Silikon?",
+      intent: "suggest",
+      items: [
+        { supplier_sku: "C039", qty: 3 },
+        { supplier_sku: "C043", qty: 1 },
+        { supplier_sku: "C027", qty: 1 },
+      ],
+      alternatives: [{ supplier_sku: "C040", qty: 3 }],
+      removals: [],
+      follow_up: "Reichen drei Tuben oder lieber fünf?",
+    },
+  },
+  {
+    matches: ["werkzeug", "bohrer", "bit", "wasserwaage"],
+    response: {
+      reply:
+        "Werkzeug-Grundausstattung: zwei 8 mm Bohrer, je vier TX20 und TX25 Bits und eine 60 cm Wasserwaage. Soll ich was zur Werkzeugkiste hinzufügen?",
+      intent: "order",
+      items: [
+        { supplier_sku: "C034", qty: 2 },
+        { supplier_sku: "C032", qty: 4 },
+        { supplier_sku: "C033", qty: 4 },
+        { supplier_sku: "C046", qty: 1 },
+      ],
+      alternatives: [],
+      removals: [],
+      follow_up: null,
+    },
+  },
+  {
+    matches: ["wie viel", "wieviel", "budget", "kosten", "preis", "rahmenvertrag"],
+    response: {
+      reply:
+        "Aktuell auto-genehmigen wir bis 200 CHF pro Bestellung. Drüber geht's an den Bauleiter. Soll ich dir eine schnelle Übersicht geben?",
+      intent: "ask",
+      items: [],
+      alternatives: [],
+      removals: [],
+      follow_up: null,
+    },
+  },
+];
+
+const DEFAULT_ASSISTANT: AiAssistantReply = ASSISTANT_HITS[0].response;
+
+export function cannedAssistantFor(transcript: string): AiAssistantReply {
+  const t = transcript.toLowerCase();
+  for (const hit of ASSISTANT_HITS) {
+    if (hit.matches.some((needle) => t.includes(needle))) return hit.response;
+  }
+  return DEFAULT_ASSISTANT;
 }

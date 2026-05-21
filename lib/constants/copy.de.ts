@@ -109,6 +109,43 @@ export const copyDe: Copy = {
   "voice.error": "Konnte die Sprachaufnahme nicht verstehen. Erneut versuchen?",
   "voice.canned_hint": "Beispiel-Bestellung (offline / ohne KI)",
 
+  // Conversational assistant (bottom-nav AI button + AssistantSheet).
+  "assistant.title": "Polier-Assistent",
+  "assistant.subtitle": "Sprich oder tipp — ich verstehe Bestellungen und Vorschläge.",
+  "assistant.placeholder": "z.B. \"Ich brauche zehn Schrauben TX25 und Handschuhe\"",
+  "assistant.send": "Senden",
+  "assistant.start_listening": "Sprechen",
+  "assistant.stop_listening": "Stopp",
+  "assistant.processing": "Denkt nach …",
+  "assistant.you_label": "Du",
+  "assistant.assistant_label": "Assistent",
+  "assistant.suggestions_label": "Vorschläge:",
+  "assistant.alternatives_label": "Alternativen:",
+  "assistant.removals_label": "Aus dem Warenkorb entfernen:",
+  "assistant.apply_items": "Diese in den Warenkorb",
+  "assistant.apply_alts": "Alternativen in den Warenkorb",
+  "assistant.apply_removals": "Aus Warenkorb entfernen",
+  "assistant.discard": "Schließen",
+  "assistant.empty_intro":
+    "Hallo Polier. Sag mir was du brauchst — \"zehn Schrauben TX25 und Handschuhe\" — oder frag mich nach Vorschlägen.",
+  "assistant.no_match":
+    "Konnte nichts im Katalog finden. Versuch's nochmal oder benutz die Suche.",
+  "assistant.permission_denied":
+    "Mikrofon-Zugriff verweigert — in den Browser-Einstellungen erlauben oder einfach tippen.",
+  "assistant.error":
+    "Konnte gerade nicht antworten. Erneut versuchen?",
+
+  // Bottom navigation bar.
+  "nav.cart": "Warenkorb",
+  "nav.ai": "Assistent",
+  "nav.discover": "Suchen",
+
+  // Cart sheet (drawer that opens from the cart icon).
+  "cart_sheet.title": "Warenkorb",
+  "cart_sheet.empty": "Dein Warenkorb ist leer. Tipp ein Set, einen Vorschlag vom Assistenten oder bestelle einen letzten Auftrag erneut.",
+  "cart_sheet.line_remove": "Entfernen",
+  "cart_sheet.close": "Schließen",
+
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
 

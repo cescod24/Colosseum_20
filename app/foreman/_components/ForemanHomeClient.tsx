@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -23,9 +23,10 @@ import { ExplainerBanner } from "./ExplainerBanner";
 import { Stepper } from "./Stepper";
 import { ChipRow } from "./ChipRow";
 import { KitTile } from "./KitTile";
-import { CartBar } from "./CartBar";
 import { OfflineToggle } from "./OfflineToggle";
-import { VoiceOrderButton } from "./VoiceOrderButton";
+import { BottomNavBar } from "./BottomNavBar";
+import { CartSheet } from "./CartSheet";
+import { AssistantSheet } from "./AssistantSheet";
 
 const CART_STORAGE_KEY = "siteorder.cart.v1";
 const QUEUE_STORAGE_KEY = "siteorder.cart.queue.v1";
@@ -119,7 +120,14 @@ export function ForemanHomeClient({
   // sync from localStorage + navigator in a single mount-time effect.
   // The setState-in-effect lint rule fires here, but this is precisely the
   // pattern React docs prescribe for "hydrate from browser-only storage."
+  const searchParams = useSearchParams();
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartOpen, setCartOpen] = useState(() =>
+    searchParams?.get("cart") === "1",
+  );
+  const [assistantOpen, setAssistantOpen] = useState(() =>
+    searchParams?.get("ai") === "1",
+  );
   const [forcedOffline, setForcedOffline] = useState(false);
   const [browserOnline, setBrowserOnline] = useState(true);
   const [submitState, setSubmitState] = useState<
@@ -248,6 +256,17 @@ export function ForemanHomeClient({
       next[idx] = { product_id, qty: next[idx].qty + qty };
       return next;
     });
+  }
+
+  function removeFromCart(supplier_sku_or_product_id: string) {
+    setCart((prev) =>
+      prev.filter((l) => {
+        const p = productById.get(l.product_id);
+        if (p?.supplier_sku === supplier_sku_or_product_id) return false;
+        if (l.product_id === supplier_sku_or_product_id) return false;
+        return true;
+      }),
+    );
   }
 
   function loadKit(set: MaterialSet) {
@@ -473,14 +492,35 @@ export function ForemanHomeClient({
 
       <div className="flex-1" />
 
-      <VoiceOrderButton addToCart={addToCart} projectId={projectId} />
+      <BottomNavBar
+        currentPath="/foreman"
+        cartCount={cart.reduce((s, l) => s + l.qty, 0)}
+        onCartTap={() => setCartOpen(true)}
+        onAssistantTap={() => setAssistantOpen(true)}
+      />
 
-      <CartBar
+      <CartSheet
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        productById={productById}
         total={total}
-        itemCount={cart.reduce((s, l) => s + l.qty, 0)}
         state={submitState}
         online={online}
-        onSubmit={onSubmit}
+        onChangeQty={setQty}
+        onSubmit={() => {
+          setCartOpen(false);
+          onSubmit();
+        }}
+      />
+
+      <AssistantSheet
+        open={assistantOpen}
+        onClose={() => setAssistantOpen(false)}
+        addToCart={addToCart}
+        removeFromCart={removeFromCart}
+        projectId={projectId}
+        cart={cart}
       />
     </div>
   );

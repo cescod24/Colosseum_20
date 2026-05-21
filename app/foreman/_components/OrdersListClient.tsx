@@ -2,12 +2,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, RotateCcw, X } from "lucide-react";
 
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 import { getBrowserClient } from "@/lib/supabase/browser";
 
 import { StatusPill, type OrderStatus } from "./StatusPill";
+import { BottomNavBar } from "./BottomNavBar";
+
+const CART_STORAGE_KEY = "siteorder.cart.v1";
+
+function readCartCount(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return 0;
+    const arr = JSON.parse(raw) as Array<{ qty?: number }>;
+    return arr.reduce((sum, l) => sum + (Number(l.qty) || 0), 0);
+  } catch {
+    return 0;
+  }
+}
 
 type OrderSummary = {
   id: string;
@@ -76,6 +92,14 @@ function shortId(id: string) {
 }
 
 export function OrdersListClient({ initialOrders, profileId }: Props) {
+  const router = useRouter();
+  const [cartCount, setCartCount] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCartCount(readCartCount());
+    const id = setInterval(() => setCartCount(readCartCount()), 3000);
+    return () => clearInterval(id);
+  }, []);
   const [orders, setOrders] = useState<OrderSummary[]>(initialOrders);
   // 0 on first render (SSR + first client paint match); the mount effect
   // below stamps it with Date.now() once we're past hydration.
@@ -319,6 +343,14 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
           })}
         </ul>
       )}
+
+      <BottomNavBar
+        currentPath="/foreman/orders"
+        cartCount={cartCount}
+        onCartTap={() => router.push("/foreman?cart=1")}
+        onAssistantTap={() => router.push("/foreman?ai=1")}
+      />
+      <div className="h-20" aria-hidden />
     </div>
   );
 }
