@@ -1489,6 +1489,47 @@ Always bind `--hostname 0.0.0.0` so IPv4 and IPv6 resolve to the same
 process. Never use `lsof -ti :3000 | xargs kill` alone — it doesn't kill
 parent / sibling next-dev processes.
 
+### 13.4b Mic-recorder stale-closure bug (avoid repeating)
+
+**Symptom:** tap mic → it appears to record but never stops, never
+sends, nothing ever appears in the chat.
+
+**Cause:** `MediaRecorder.onstop` was bound inside `startRecording` and
+read `status` from a React closure. By the time the callback fired,
+the closure's `status.kind` was still `"idle"` (the value at bind
+time — React had not yet committed the `setStatus({recording, …})`
+call). So elapsed = `Date.now() - Date.now()` = 0, the "< 500ms too
+short" branch fired, the blob was silently discarded.
+
+**Fix (already applied in AssistantSheet.tsx):** hold the recording
+start in `recordingStartedAtRef`, write it BEFORE `rec.start()`, read
+it inside `onstop`. Removed `status` from `startRecording`'s
+`useCallback` deps so the function is stable. Same trap applies to
+any other code that wants to use `MediaRecorder.onstop` — never read
+React state directly inside it, always go through a ref.
+
+### 13.4c Header de-duplication (post-merge tidy)
+
+The top-of-page header on `/foreman` used to also carry a
+`ClipboardList` link to `/foreman/orders` — same destination as the
+bottom-nav Orders item. Removed from the header; the top now only
+holds genuine *utility* actions (offline-toggle, info, role-switch /
+logout), and the bottom is the only navigation surface. Rule of thumb
+going forward: anything that's also in `BottomNavBar` does not belong
+in the page header.
+
+### 13.4d Cart no longer re-fills after submit (Dev B fix `120758b`)
+
+Dev B's commit on `main` fixes a related foreman issue: after a
+successful submit, the cart was getting re-seeded with the foreman's
+`lastOrder` on the next visit because `loadCart()` returned `[]` for
+both "never written" and "explicitly emptied." Now `loadCart()` is
+tri-state (`null` = never written, `[]` = emptied, `[items]` =
+active), and the home only prefills from `lastOrder` on the `null`
+branch. The home also gained a `seededRef` guard so live-refresh
+from RefreshPoller doesn't re-trigger the seed. Both pieces play
+correctly with the assistant's `addToCart` path.
+
 ### 13.5 Out of scope (do NOT re-propose)
 
 - TTS (assistant speaks back) — text replies only.

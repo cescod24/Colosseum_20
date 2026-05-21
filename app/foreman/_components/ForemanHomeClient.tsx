@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  ChevronRight,
-  ClipboardList,
-  HelpCircle,
-  LogOut,
-  Search,
-} from "lucide-react";
+import { ChevronRight, HelpCircle, LogOut, Search } from "lucide-react";
 
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 import type {
@@ -359,13 +353,9 @@ export function ForemanHomeClient({
           >
             <HelpCircle className="h-4 w-4" />
           </Link>
-          <Link
-            href="/foreman/orders"
-            className="rounded-full border border-zinc-200 bg-white p-2 text-zinc-700 hover:border-zinc-400"
-            aria-label={copyDe["nav.orders"]}
-          >
-            <ClipboardList className="h-4 w-4" />
-          </Link>
+          {/* "Bestellungen" was here too — moved to the bottom nav. Header now
+              only holds utility actions that aren't navigation: explainer link
+              + offline toggle + role switch (logout). */}
           <Link
             href="/"
             className="rounded-full border border-zinc-200 bg-white p-2 text-zinc-700 hover:border-zinc-400"

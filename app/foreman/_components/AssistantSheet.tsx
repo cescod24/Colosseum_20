@@ -106,6 +106,11 @@ export function AssistantSheet({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const listRef = useRef<HTMLDivElement | null>(null);
+  // rec.onstop is bound ONCE inside startRecording; it cannot read `status`
+  // safely because the React closure would be stale by the time the callback
+  // fires (the bug that made the mic "do nothing" — elapsed always 0 → too
+  // short → silent abort). Use a ref instead.
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   // Scroll latest message into view.
   useEffect(() => {
@@ -210,8 +215,10 @@ export function AssistantSheet({
         if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
       };
       rec.onstop = () => {
-        const startedAt =
-          status.kind === "recording" ? status.startedAt : Date.now();
+        // Read startedAt from the ref (not React state) so this callback
+        // always sees the value set just below, not a stale closure.
+        const startedAt = recordingStartedAtRef.current ?? Date.now();
+        recordingStartedAtRef.current = null;
         const elapsed = Date.now() - startedAt;
         const blob = new Blob(chunksRef.current, {
           type: rec.mimeType || "audio/webm",
@@ -226,14 +233,19 @@ export function AssistantSheet({
         }
         void sendRequest({ audioBlob: blob }, rec.mimeType);
       };
+      // Set the ref FIRST, then start the recorder, then update React state.
+      // If start() somehow throws synchronously we want the ref already set
+      // so the catch path can clean it up.
+      recordingStartedAtRef.current = Date.now();
       rec.start();
       setStatus({ kind: "recording", startedAt: Date.now() });
     } catch (err) {
       console.warn("[assistant] mic permission denied", err);
+      recordingStartedAtRef.current = null;
       stopStream();
       setStatus({ kind: "denied" });
     }
-  }, [sendRequest, status]);
+  }, [sendRequest]);
 
   const stopRecording = useCallback(() => {
     const rec = recorderRef.current;
