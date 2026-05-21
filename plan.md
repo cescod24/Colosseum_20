@@ -568,10 +568,32 @@ cut is the procurement UI to **define and edit** new kits.
 
 ## 6. Verification (run after every phase + at the end)
 
-- [x] `npm run typecheck` clean (verified on `dev-a` after Slice B merge).
+- [x] `npm run typecheck` clean (post-Phase 9 / §9.3.3 merge).
 - [x] `npm run lint` clean.
-- [x] `npm run build` succeeds (11 routes generated).
-- [ ] Manual exercise of the demo flow in §1 above:
+- [x] `npm run build` succeeds (14 routes generated incl. /foreman/info,
+      /procurement/dashboard, /procurement/catalog, /api/products/[id]).
+- [x] **API-side smoke tests** (Dev B, 2026-05-21):
+  - [x] `GET /api/orders/list` with `x-demo-user=foreman-a` → 200 with
+        OrderSummary[]; includes `rejected` rows (proves migration 0002
+        is live).
+  - [x] `POST /api/discover` with `{ task: "Beton bestellen" }` → 200 with
+        `{ items: [], redirect: true, message: "Beton, Stahl …" }` —
+        short-circuits server-side before any OpenAI call.
+  - [x] `GET /foreman/info` → 200; "C-Material erklärt" present.
+  - [x] `GET /procurement/dashboard` with `x-demo-user=procurement` → 200;
+        "Spend dashboard", "Spend by supplier", "Top foremen" all present.
+  - [x] `GET /procurement/catalog` → 200; 200 editable product rows
+        rendered (hits the LIMIT — the live catalog has grown beyond
+        the original 99).
+- [x] **Code-review verifications** (don't need a browser):
+  - [x] `lib/ai.ts` falls back to canned on (a) missing `OPENAI_API_KEY`,
+        (b) empty completion, (c) any thrown error — three independent
+        triggers.
+  - [x] `OfflineToggle` + `ForemanHomeClient` wire `forcedOffline` into
+        `online = browserOnline && !forcedOffline`; submit queues into
+        `localStorage[siteorder.cart.queue.v1]` and flushes on the
+        `online` event.
+- [ ] **Browser-driven DOD steps still need user interaction:**
   - [ ] Banner "C-Material erklärt" appears on first foreman visit; dismiss
         sticks across reload.
   - [ ] Three kit tiles render on the foreman home; tapping any tile pre-fills
@@ -581,13 +603,17 @@ cut is the procurement UI to **define and edit** new kits.
         Pending.
   - [ ] Procurement Approve → live flip on foreman screen → `mock_comstruct_orders`
         row exists with comstruct-shaped payload → ~8 s later Delivered.
-  - [ ] Search "Beton" → friendly redirect, no API call.
-  - [ ] (Stretch.) Dashboard charts non-flat across suppliers/groups/foremen.
-- [ ] Unset `OPENAI_API_KEY` and rerun discovery + ingestion — both work
-      via canned fallback; UI identical.
-- [ ] Run seed twice in a row — no duplicates.
-- [ ] Toggle offline indicator in foreman cart — submit queues, then drains on
-      re-enable.
+  - [ ] Search "Beton" → friendly redirect, no API call. *(API path
+        verified above; just confirm the UI honors it.)*
+  - [ ] Toggle offline indicator in foreman cart — submit queues, then drains on
+        re-enable.
+  - [ ] Dashboard charts non-flat across suppliers/groups/foremen.
+- [ ] **Risky — needs explicit OK before running on the shared cloud DB:**
+  - [ ] Run seed twice in a row — no duplicates. *(Would TRUNCATE …
+        RESTART IDENTITY CASCADE on the shared project; defer to team
+        coordination.)*
+  - [ ] Unset `OPENAI_API_KEY` globally and rerun discovery + ingestion. *(Code
+        path verified, but a live re-test would briefly disrupt other devs.)*
 
 ---
 
