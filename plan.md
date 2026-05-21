@@ -507,19 +507,22 @@ This phase also **onboards the ACME supplier live** by uploading
   via `/procurement/discover-test`); A-material search hits the redirect,
   no AI call.
 
-### Phase 8 — A-material explainer (F7, weight 8) — formalisation, stretch  `[ ]`
+### Phase 8 — A-material explainer (F7, weight 8) — formalisation, stretch  `[x]`
 
 The core deliverable (the dismissible home banner) is already shipped in
 Phase 2; the search-side redirect is shipped in Phase 7. This phase formalises
 the explainer further if time allows. Drop entirely if short.
 
-- [ ] Dedicated `/info` route reachable from a small "?" icon in the header,
-      showing a one-screen plain-language explanation: what counts as
-      C-Material (with icons), what doesn't (Beton/Stahl/Bewehrung/Schalung),
-      and how to get those instead ("frag deinen Bauleiter").
-- [ ] Surface the same friendly redirect copy used in Phase 7 on this page so
+- [x] Dedicated `/foreman/info` route reachable from a "?" icon in the
+      foreman home header (`HelpCircle`), showing a one-screen plain-language
+      explanation: what counts as C-Material (with category icons from
+      `categories.ts`), what doesn't (Beton/Stahl/Bewehrung/Schalung), and
+      how to get those instead ("frag deinen Bauleiter").
+- [x] Surface the same friendly redirect copy used in Phase 7 on this page so
       a foreman who lands here from the search redirect has a single,
-      consistent explanation.
+      consistent explanation. (Copy lives in `info.what_no_body` /
+      `discover.blocked.body` — same German phrasing about Beton, Stahl,
+      Bewehrung, Schalung going through the Bauleiter.)
 
 ### Phase 9 — Spend dashboard (F8, weight 6) — stretch  `[ ]`
 - [ ] `(procurement)/dashboard/page.tsx` with Recharts:
@@ -689,7 +692,7 @@ them:
   `/procurement/discover-test` dev tool. **Verified live:** with the seeded
   catalog, "Fenster abdichten" returns real products with real DB UUIDs
   (`canned:false`). The foreman-facing UI is slice A.
-- _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
+- _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ **done** (Dev B lane). `app/foreman/info/page.tsx` + `HelpCircle` "?" icon link in the foreman home header; reuses `categories.ts` for the icons and `copy.de.ts` for all strings (new `info.*` + `nav.info` keys).
 - _Phase 9 (stretch — spend dashboard) —_ (not started)
 - _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
 
@@ -780,7 +783,7 @@ fine); date-range pickers.
 orders; numbers match a manual SQL `SUM(qty * unit_price) GROUP BY
 supplier_id` against the live DB.
 
-#### `[ ]` 9.3.2 Phase 8 — Formal `/info` C-material explainer route (any lane)
+#### `[x]` 9.3.2 Phase 8 — Formal `/info` C-material explainer route (any lane)
 
 **Brief requirement:** §1.2 "Explain C-materials clearly … via microcopy,
 onboarding screens, tooltips, or the information architecture itself."

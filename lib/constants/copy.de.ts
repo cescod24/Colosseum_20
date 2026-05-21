@@ -49,6 +49,16 @@ export const copyDe: Copy = {
   "nav.role_switch": "Rolle wechseln",
   "nav.orders": "Bestellungen",
   "nav.home": "Bestellen",
+  "nav.info": "Was ist C-Material?",
+
+  "info.title": "C-Material erklärt",
+  "info.intro":
+    "Hier bestellst du Kleinmaterial für die Baustelle — schnell, ohne Telefon, ohne Excel.",
+  "info.what_yes_title": "Das kannst du hier bestellen:",
+  "info.what_no_title": "Das nicht:",
+  "info.what_no_body":
+    "Beton, Stahl, Bewehrung und Schalung gehen über deinen Bauleiter — er hat die Rahmenverträge mit den Lieferanten.",
+  "info.back": "Zurück zur Startseite",
 
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
