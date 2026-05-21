@@ -868,7 +868,7 @@ review state for cleanup instead).
 rename one product, refresh → name persists in DB; submit a foreman order
 for that product → queue shows the new name.
 
-#### `[ ]` 9.3.4 Per-project price override (cross-lane, schema change — HIGH RISK)
+#### `[x]` 9.3.4 Per-project price override (cross-lane, schema change — HIGH RISK; landed on dev-b ONLY pending team agreement before merging to main)
 
 **Brief requirement:** §2.1 "Handling different price structures
 (contract prices, discounts, **project-specific prices**)." Today

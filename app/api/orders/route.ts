@@ -54,6 +54,29 @@ export async function POST(request: Request) {
     (products ?? []).map((p) => [p.id, p as ProductRow]),
   );
 
+  // Per-project price overrides (migration 0003). NULL/missing rows fall
+  // back to products.unit_price below.
+  const { data: overridesRaw } = await supabase
+    .from("project_products")
+    .select("product_id, unit_price")
+    .eq("project_id", profile.project_id)
+    .in("product_id", productIds);
+
+  const overrideByProductId = new Map<string, number>();
+  for (const row of overridesRaw ?? []) {
+    const r = row as { product_id: string; unit_price: number | null };
+    if (r.unit_price !== null && Number.isFinite(Number(r.unit_price))) {
+      overrideByProductId.set(r.product_id, Number(r.unit_price));
+    }
+  }
+
+  function effectivePrice(productId: string): number | null {
+    const override = overrideByProductId.get(productId);
+    if (override !== undefined) return override;
+    const catalog = byId.get(productId)?.unit_price;
+    return catalog === null || catalog === undefined ? null : Number(catalog);
+  }
+
   for (const id of productIds) {
     const row = byId.get(id);
     if (!row) {
@@ -68,7 +91,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (row.unit_price === null) {
+    if (effectivePrice(id) === null) {
       return NextResponse.json(
         { error: `Product ${id} has no unit_price.` },
         { status: 400 },
@@ -80,7 +103,8 @@ export async function POST(request: Request) {
   const ruleItems: RuleItem[] = [];
   for (const line of parsed.data.items) {
     const row = byId.get(line.product_id)!;
-    total += Number(row.unit_price) * line.qty;
+    const price = effectivePrice(line.product_id)!;
+    total += price * line.qty;
     ruleItems.push({ product_group: row.product_group, hazardous: row.hazardous });
   }
   total = Math.round(total * 100) / 100;
@@ -134,7 +158,7 @@ export async function POST(request: Request) {
     order_id: inserted.id,
     product_id: line.product_id,
     qty: line.qty,
-    unit_price: Number(byId.get(line.product_id)!.unit_price),
+    unit_price: effectivePrice(line.product_id)!,
   }));
 
   const { error: itemsError } = await supabase
