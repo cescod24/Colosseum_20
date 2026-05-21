@@ -40,6 +40,10 @@ yarn-error.log*
 # claude code per-project state
 /.claude
 
+# editor swap files
+*.swp
+*~
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

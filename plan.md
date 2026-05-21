@@ -296,7 +296,7 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   `/procurement/queue` (the foreman/procurement screens are placeholders
   pending Phases 2/5).
 
-### Phase 1 — Data model + seed  `[ ]` (schema half done; seed half pending)
+### Phase 1 — Data model + seed  `[x]` (schema + seed done, run against live DB)
 - [x] Write `supabase/migrations/0001_init.sql`:
   - [x] Tables: `projects`, `suppliers`, `products`, `project_products`,
         `material_sets`, `material_set_items`, `orders`, `order_items`,
@@ -332,10 +332,10 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   - [x] Insert **three `material_sets`** + `material_set_items`:
         "PPE-Set neuer Mitarbeiter", "Trockenbau-Set 50 m²",
         "Werkzeug-Grundausstattung" — each item with a sensible `default_qty`.
-- **Checkpoint:** `npm run seed` is written and idempotent (wipes in reverse
-  dependency order, then inserts). It needs a linked Supabase project +
-  `.env.local` to actually run — that's the team-unblock step, not a code
-  gap.
+- **Checkpoint:** ✅ `npm run seed` runs against the live Supabase project and
+  is idempotent (ran twice, counts stable: 33 suppliers, 99 products, 3
+  profiles, 3 kits/17 items, 20 orders). Rows visible in the dashboard; the
+  three kits and their items are present.
 
 ### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
 - [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
@@ -620,29 +620,42 @@ them:
 
 ## 8. Phase progress log (append to as you go)
 
-- _Phase 0 —_ **done** (Step 0 commit). Next.js 16 + TS + Tailwind v4 +
-  shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher landing
-  at `/`; `data/sample.csv` and `data/fake_contract_products_with_logo.pdf`
-  moved; CLAUDE.md rewritten for cloud Supabase + service-role boundary;
-  Lovable references removed across the docs.
-- _Phase 1 —_ **schema half done** (Step 0 commit) + **seed half code-complete**
-  (slice C, `dev-c` branch). Full `supabase/migrations/0001_init.sql`;
-  `scripts/seed.ts` parses the CSV, applies the blocklist, normalises, and
-  inserts suppliers/products/project/profiles/orders/kits + the hazardous
-  fixture. Needs a linked Supabase project to actually run.
+- _Infra / env —_ **live as of 2026-05-21.** Supabase Cloud project
+  `mxftvxbjsumqygtmmztq` is up; `0001_init.sql` applied via the dashboard SQL
+  editor; `npm run seed` has been run against it (idempotent, verified twice).
+  **AI provider is OpenAI** (`gpt-4o-mini`, `OPENAI_API_KEY` + `OPENAI_MODEL`)
+  — switched from Anthropic because the team has an OpenAI key. The 5 env
+  values live in the team chat (shared privately), never in the repo. No
+  Vercel project yet — everything runs locally via `npm run dev`.
+- _Phase 0 —_ **done** (Step 0 commit, on `main`). Next.js 16 + TS + Tailwind
+  v4 + shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher
+  landing at `/`; `data/sample.csv` and
+  `data/fake_contract_products_with_logo.pdf` moved; CLAUDE.md rewritten for
+  cloud Supabase + service-role boundary; Lovable references removed.
+- _Phase 1 —_ **done** (schema in Step 0; seed by slice C, merged to `main`).
+  Full `supabase/migrations/0001_init.sql`; `scripts/seed.ts` parses the CSV,
+  applies the blocklist, normalises, and inserts suppliers/products/project/
+  profiles/orders/kits + the hazardous fixture. **Run against the live
+  project:** 33 suppliers, 99 products (C071 blocked), 3 profiles, 3 kits
+  (17 items), 20 orders. Re-running is idempotent (counts stable).
 - _Phase 2 —_ (not started)
 - _Phase 3 —_ (not started)
 - _Phase 4 —_ (not started)
 - _Phase 5 —_ (not started)
-- _Phase 6 —_ **done** (slice C, `dev-c` branch). `/api/ingest` (CSV + PDF),
+- _Phase 6 —_ **done** (slice C, merged to `main`). `/api/ingest` (CSV + PDF),
   `(procurement)/ingest` review screen, robust extraction prompt, canned
   fallbacks for both PDFs ([lib/canned/ingest.ts](lib/canned/ingest.ts)),
-  and the authored messy PDF. Per-row activate is a visual toggle until the
-  DB is wired. Verified locally: clean PDF → 8 active, messy PDF → 4 review.
-- _Phase 7 —_ **backend done** (slice C, `dev-c` branch). `/api/discover`
+  and the authored messy PDF. **Verified live against the seeded DB:** the
+  messy PDF goes through real OpenAI extraction and **persists** to
+  `products` (review/active split — e.g. 2 review, 3 active), catalog grew
+  99 → 104. The per-row "Bestätigen & aktivieren" PATCH is still a visual
+  toggle (no products-status endpoint yet) — the one remaining gap.
+- _Phase 7 —_ **backend done** (slice C, merged to `main`). `/api/discover`
   (catalog → OpenAI → Zod → SKU→UUID resolve), server-side A-material
   redirect, canned fallbacks for the 3 rehearsed prompts, and a
-  `/procurement/discover-test` dev tool. The foreman-facing UI is slice A.
+  `/procurement/discover-test` dev tool. **Verified live:** with the seeded
+  catalog, "Fenster abdichten" returns real products with real DB UUIDs
+  (`canned:false`). The foreman-facing UI is slice A.
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
 - _Phase 9 (stretch — spend dashboard) —_ (not started)
 - _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
