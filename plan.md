@@ -1250,18 +1250,20 @@ For a fresh chat continuing §11:
 
 ---
 
-## 12. Slice A — voice ordering on /foreman home (on `dev-a`, NOT merged)
+## 12. Slice A — voice ordering on /foreman home (MERGED to main)
 
 Parallel surface to §11.B's `VoiceSearch` on /foreman/discover. Two voice
 features in the build, two intents, two screens. Both ship.
 
 ### 12.1 Status
 
-- Branch: `dev-a` → tip `943fe84`, six commits ahead of `main`.
-- Not merged to `main` per team policy ("merge when all slices are
-  done"). When ready: `git checkout main && git pull && git merge --no-ff
-  origin/dev-a -m "Merge dev-a → main: Slice A voice ordering"`.
-- `typecheck` / `lint` / `build` all green locally.
+- **Merged to `main`** (2026-05-22 session, merge commit `ca064a0`).
+- Schema-conflict resolution: both Slice A's voice schemas and Dev B's
+  `decideOrderLine*` schemas (§ partial decisions) live in
+  `lib/schema.ts` side-by-side; both were additive, conflict only
+  because they appended at the same line. Same applies to copy.de.ts
+  (mine adds `voice.order_button*`, Dev B added `order_detail.*`).
+- `typecheck` / `lint` / `build` all green post-merge.
 
 ### 12.2 Commit ladder (each independently green)
 
@@ -1354,8 +1356,8 @@ b4e87ae  feat(api): POST /api/voice — Whisper + extraction + A-material guard
 
 ```
 For a fresh chat continuing §12:
-- Slice A voice ordering lives on dev-a (tip 943fe84). NOT merged
-  to main per team policy. Six commits, see §12.2.
+- Slice A voice ordering is MERGED to main (merge commit ca064a0).
+  Six feature commits + the merge — see §12.2 for the ladder.
 - It coexists with Dev B's VoiceSearch (§11.B / 5430dd1 on main).
   Mine: server-side Whisper on /foreman home (cart fill).
   Theirs: Web Speech API on /foreman/discover (search input).
