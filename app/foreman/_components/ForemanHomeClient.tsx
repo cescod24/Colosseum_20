@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ClipboardList, LogOut, Search } from "lucide-react";
@@ -116,9 +116,15 @@ export function ForemanHomeClient({
   // One-shot hydration of cart + queue length + navigator.onLine from the
   // browser, after the first client render has reproduced the SSR HTML.
   // setState-in-effect is intentional here — this is React's documented
-  // pattern for "rehydrate from browser-only storage." It runs exactly once
-  // (no dep changes), so it can't cascade.
+  // pattern for "rehydrate from browser-only storage." The seededRef guard
+  // keeps it truly one-shot even when the page is live-refreshed (the
+  // RefreshPoller calls router.refresh(), which changes the lastOrder
+  // reference) — without it, every refresh would re-seed and clobber the
+  // foreman's in-progress cart.
+  const seededRef = useRef(false);
   useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
     const persisted = loadCart();
     let nextCart: CartLine[] | null = null;
     if (persisted.length) {

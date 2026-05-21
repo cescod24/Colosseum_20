@@ -4,6 +4,11 @@ import { resolveProfileForRole } from "@/lib/server/demo-profile";
 import { getServerClient } from "@/lib/supabase/server";
 import { approveOrder, rejectOrder } from "@/lib/server/orders";
 import { copyEn } from "@/lib/constants/copy.en";
+import { RefreshPoller } from "@/components/RefreshPoller";
+
+// Live: re-fetch the pending queue every 3s so new foreman submissions
+// appear without a manual refresh.
+export const dynamic = "force-dynamic";
 
 type QueueLine = {
   qty: number;
@@ -81,6 +86,7 @@ export default async function QueuePage() {
 
   return (
     <section className="space-y-6">
+      <RefreshPoller intervalMs={3000} />
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-zinc-900">
           {copyEn["queue.title"]}

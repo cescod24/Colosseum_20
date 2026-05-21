@@ -12,6 +12,7 @@ import {
 } from "@/lib/data/foreman";
 
 import { ForemanHomeClient } from "./_components/ForemanHomeClient";
+import { RefreshPoller } from "@/components/RefreshPoller";
 
 export const dynamic = "force-dynamic";
 
@@ -49,12 +50,15 @@ export default async function ForemanHome() {
   void loadForemanOrders;
 
   return (
-    <ForemanHomeClient
-      greeting={profile.display_name}
-      catalog={catalog}
-      lastOrder={lastOrder}
-      sets={sets}
-      mostOrdered={mostOrdered}
-    />
+    <>
+      <RefreshPoller intervalMs={3000} />
+      <ForemanHomeClient
+        greeting={profile.display_name}
+        catalog={catalog}
+        lastOrder={lastOrder}
+        sets={sets}
+        mostOrdered={mostOrdered}
+      />
+    </>
   );
 }
