@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDemoRole } from "@/lib/role";
 import { resolveProfileForRole } from "@/lib/server/demo-profile";
-import { approveOrder, rejectOrder } from "@/lib/server/orders";
+import {
+  approveOrder,
+  decideOrderLines,
+  rejectOrder,
+} from "@/lib/server/orders";
+import { decideOrderLinesInputSchema } from "@/lib/schema";
 
 export const runtime = "nodejs";
 
-const decideInputSchema = z.object({
+const wholeOrderInputSchema = z.object({
   action: z.enum(["approve", "reject"]),
 });
 
@@ -32,13 +37,30 @@ export async function POST(
 
   const { id } = await params;
   const body = await request.json().catch(() => null);
-  const parsed = decideInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid action." }, { status: 400 });
+
+  const linesParsed = decideOrderLinesInputSchema.safeParse(body);
+  if (linesParsed.success) {
+    const result = await decideOrderLines(
+      id,
+      profile.id,
+      linesParsed.data.lines,
+    );
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.code });
+    }
+    return NextResponse.json({ id, status: result.status });
+  }
+
+  const wholeParsed = wholeOrderInputSchema.safeParse(body);
+  if (!wholeParsed.success) {
+    return NextResponse.json(
+      { error: "Invalid decision payload." },
+      { status: 400 },
+    );
   }
 
   const result =
-    parsed.data.action === "approve"
+    wholeParsed.data.action === "approve"
       ? await approveOrder(id, profile.id)
       : await rejectOrder(id, profile.id);
 

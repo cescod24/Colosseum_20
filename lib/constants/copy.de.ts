@@ -62,6 +62,14 @@ export const copyDe: Copy = {
 
   "order_detail.title": "Auftrag",
   "order_detail.lines": "Positionen",
+  "order_detail.declined_reason": "Grund",
+  "order_detail.declined_no_reason":
+    "Diese Position wurde vom Einkauf abgelehnt.",
+  "order_detail.suggestion_label": "Vorschlag vom Einkauf",
+  "order_detail.suggestion_accept": "Vorschlag annehmen",
+  "order_detail.suggestion_decline": "Ablehnen",
+  "order_detail.suggestion_accepted":
+    "Hinzugefügt. Weiter im Warenkorb.",
 
   "delivery.title": "Lieferung bestätigen",
   "delivery.body":

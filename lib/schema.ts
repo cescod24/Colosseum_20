@@ -209,3 +209,47 @@ export type AiVoiceResponse = z.infer<typeof aiVoiceResponseSchema>;
 export type VoiceItem = z.infer<typeof voiceItemSchema>;
 export type VoiceUnmatched = z.infer<typeof voiceUnmatchedSchema>;
 export type VoiceResponse = z.infer<typeof voiceResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Partial order decisions (migration 0004) — POST /api/orders/[id]/decide
+// ---------------------------------------------------------------------------
+// Procurement can decide each line independently. Either:
+//   { action: "approve" | "reject" }     — legacy whole-order decision
+//   { lines: [ { order_item_id, decision, reason?, suggested_product_id?, suggested_qty? } ] }
+// The line form: every order_item_id of the pending order must appear once.
+// Declined lines may carry a free-text reason and an optional suggested
+// alternative product + qty.
+
+export const decideOrderLineSchema = z
+  .object({
+    order_item_id: z.string().uuid(),
+    decision: z.enum(["approve", "decline"]),
+    reason: z
+      .string()
+      .max(500)
+      .nullish()
+      .transform((v) => (v && v.trim() ? v.trim() : null)),
+    suggested_product_id: z.string().uuid().nullish(),
+    suggested_qty: z
+      .union([z.number(), z.string()])
+      .nullish()
+      .transform((v) => {
+        if (v === null || v === undefined || v === "") return null;
+        const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }),
+  })
+  .refine(
+    (v) => v.decision === "approve" || !v.suggested_product_id || v.suggested_qty !== null,
+    {
+      message: "A suggested product needs a positive quantity.",
+      path: ["suggested_qty"],
+    },
+  );
+
+export const decideOrderLinesInputSchema = z.object({
+  lines: z.array(decideOrderLineSchema).min(1),
+});
+
+export type DecideOrderLineInput = z.infer<typeof decideOrderLineSchema>;
+export type DecideOrderLinesInput = z.infer<typeof decideOrderLinesInputSchema>;
