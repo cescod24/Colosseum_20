@@ -82,14 +82,16 @@ async function wipe(db: SupabaseClient) {
     "suppliers",
     "projects",
   ];
+  // Composite-PK tables have no `id` column; filter by a column they do have.
+  const filterCol: Record<string, string> = {
+    project_products: "project_id",
+    material_set_items: "set_id",
+  };
   for (const t of tables) {
-    const { error } =
-      t === "project_products" || t === "material_set_items"
-        ? await db
-            .from(t)
-            .delete()
-            .neq("project_id", NULL_UUID) // composite-PK tables: filter by one component
-        : await db.from(t).delete().not("id", "is", null);
+    const col = filterCol[t];
+    const { error } = col
+      ? await db.from(t).delete().neq(col, NULL_UUID)
+      : await db.from(t).delete().not("id", "is", null);
     if (error) throw new Error(`wipe ${t}: ${error.message}`);
   }
 }
