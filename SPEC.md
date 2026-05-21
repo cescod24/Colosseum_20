@@ -37,7 +37,7 @@ mocked** (a stub function that logs the payload).
 
 - Next.js App Router. Foreman and procurement are routes in one app, gated by
   Supabase Auth role (`foreman` | `procurement`).
-- **All Anthropic calls live in `app/api/**` Route Handlers (server-side).** Two
+- **All OpenAI calls live in `app/api/**` Route Handlers (server-side).** Two
   endpoints: `POST /api/ingest` (PDF/CSV → normalized products) and
   `POST /api/discover` (natural-language task → ranked product list).
 - Approval logic runs server-side at order submit, reading rules from the DB.
@@ -73,7 +73,7 @@ supplier, `gefahrgut`→`hazardous`, `typische_baustelle`→`trade` hint.
 ## Phase 0 — Scaffold  `[ ]`
 - [ ] Create the Next.js + TypeScript + Tailwind + shadcn/ui project.
 - [ ] Add Supabase client (server + browser helpers), `.env.example`, `.env.local`.
-- [ ] Install: `@anthropic-ai/sdk`, `papaparse`, `zod`, `recharts`.
+- [ ] Install: `openai`, `papaparse`, `zod`, `recharts`.
 - [ ] Add `npm run typecheck` and a `seed` script stub.
 - **Checkpoint:** `npm run dev` serves a placeholder home page.
 
@@ -117,7 +117,7 @@ supplier, `gefahrgut`→`hazardous`, `typische_baustelle`→`trade` hint.
 
 ## Phase 6 — Catalog ingestion: CSV + PDF (F5, weight 12)  `[ ]`
 - [ ] CSV/Excel upload → PapaParse → map columns → insert as `active` products.
-- [ ] `POST /api/ingest`: accept a contract PDF, send to Anthropic as a document
+- [ ] `POST /api/ingest`: accept a contract PDF, send to OpenAI as a file
       block, return JSON to the normalized schema; infer `product_group`/`trade`
       from descriptions; **extract-or-null on price**; validate with Zod.
 - [ ] Rows with null price or low confidence land as `status='review'`; a small
@@ -128,7 +128,7 @@ supplier, `gefahrgut`→`hazardous`, `typische_baustelle`→`trade` hint.
 - [ ] Big-icon category browse (Fasteners, Tape & seals, PPE, Tools, …).
 - [ ] `POST /api/discover`: take a natural-language task ("seal a window",
       "fix plasterboard to metal stud"), pass it plus the project's catalog to
-      Anthropic, return a short ranked list with reasons. Add to cart from there.
+      OpenAI, return a short ranked list with reasons. Add to cart from there.
 - **Checkpoint:** a task query returns a sensible short list, not a SKU dump.
 
 ## Phase 8 — C-materials explainer + misuse prevention (F7, weight 8)  `[ ]`

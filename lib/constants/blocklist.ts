@@ -1,6 +1,6 @@
 // A-material substring blocklist. Applied:
 //   1. at the foreman search input (Phase 7) — match → friendly redirect, no
-//      Anthropic call;
+//      OpenAI call;
 //   2. at every ingestion path (Phase 6) — match → row is dropped (or, on
 //      ambiguous PDFs, flagged for procurement review) so A/B-material can
 //      never enter the catalog.

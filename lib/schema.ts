@@ -13,14 +13,39 @@ import { z } from "zod";
 // AI ingestion (Phase 6) — POST /api/ingest
 // ---------------------------------------------------------------------------
 
+// Tolerant of AI output quirks: models often return `null` for booleans
+// they're unsure about, prices as strings, or out-of-range confidences.
+// We coerce rather than reject — the row still has to survive `isReviewRow`,
+// so a coerced-to-null price just routes it to review anyway.
 export const ingestedProductSchema = z.object({
   name: z.string().min(1),
   supplier_sku: z.string().min(1),
-  unit: z.string().nullable(),
-  unit_price: z.number().positive().nullable(),
-  product_group: z.string().nullable(),
-  hazardous: z.boolean().default(false),
-  confidence: z.number().min(0).max(1),
+  unit: z
+    .string()
+    .nullish()
+    .transform((v) => (v && v.trim() ? v.trim() : null)),
+  unit_price: z
+    .union([z.number(), z.string(), z.null()])
+    .nullish()
+    .transform((v) => {
+      if (v === null || v === undefined) return null;
+      const n = typeof v === "string" ? Number(v.replace(",", ".")) : v;
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }),
+  product_group: z
+    .string()
+    .nullish()
+    .transform((v) => (v && v.trim() ? v.trim() : null)),
+  hazardous: z
+    .boolean()
+    .nullish()
+    .transform((v) => v ?? false),
+  confidence: z
+    .number()
+    .nullish()
+    .transform((v) =>
+      typeof v === "number" && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5,
+    ),
 });
 
 export const ingestResponseSchema = z.object({

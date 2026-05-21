@@ -1,4 +1,4 @@
-// Canned Anthropic discovery responses for the rehearsed demo prompts.
+// Canned discovery responses (OpenAI) for the rehearsed demo prompts.
 //
 // Returned by `/api/discover` when:
 //   - the query (lowercased) matches one of the entries below

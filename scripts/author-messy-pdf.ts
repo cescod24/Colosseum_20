@@ -11,7 +11,7 @@
  *   3. "Reinigungstücher Industrie" — missing unit
  *   4. "Schraube TX25 / passender Dübel 8mm" — merged product line
  *
- * The canned-fallback registry in `lib/anthropic.ts` returns these four
+ * The canned-fallback registry in `lib/canned/ingest.ts` returns these four
  * rows with confidence < 0.7 (or unit_price=null) so they land in
  * status='review' on ingest. The procurement review screen confirms /
  * activates them in one tap.

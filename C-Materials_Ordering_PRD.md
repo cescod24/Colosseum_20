@@ -73,7 +73,7 @@ These are the conceptual models the whole build rests on. Get these right and th
 `{ id, name, supplier_sku, supplier, product_group, trade, unit, pack_size, unit_price, currency, hazardous }`.
 Discovery, kits, and filters all read from this single shape — that is what keeps the foreman's view simple no matter how messy the source data was.
 
-**Pattern 3 — Ingestion as an AI extraction + human-review step.** CSV/Excel is a direct parse. A contract PDF goes to the Anthropic API, which returns structured JSON *and* infers `product_group` / `trade` from the description ("Torx 4×40" → Fasteners). Crucially, the model is constrained to *extract-or-null* on prices — never invent — and low-confidence rows are flagged for procurement to confirm. Ingestion is a batch job, off the foreman's critical path.
+**Pattern 3 — Ingestion as an AI extraction + human-review step.** CSV/Excel is a direct parse. A contract PDF goes to the OpenAI API, which returns structured JSON *and* infers `product_group` / `trade` from the description ("Torx 4×40" → Fasteners). Crucially, the model is constrained to *extract-or-null* on prices — never invent — and low-confidence rows are flagged for procurement to confirm. Ingestion is a batch job, off the foreman's critical path.
 
 **Pattern 4 — Discovery as ranking, not search.** Because a C-catalog is small per project (hundreds, not millions, once filtered to one company's contracts), task-based discovery is "rank the catalog against this natural-language task," which fits in a single AI prompt — no vector database needed at hackathon scale.
 
@@ -100,7 +100,7 @@ The make-or-break judging criterion is *"could a non-digital native use it witho
 ## 5. Limitations to plan for
 
 **On the chosen Next.js + Supabase Cloud stack:**
-- All Anthropic API calls and all privileged DB writes (using the Supabase **service-role** key) live in **Next.js Route Handlers under `app/api/**`**. The browser only ever talks to Supabase with the anon key. This is the single most important security rule in the project — the service-role key and the Anthropic key must never leak into client components.
+- All OpenAI API calls and all privileged DB writes (using the Supabase **service-role** key) live in **Next.js Route Handlers under `app/api/**`**. The browser only ever talks to Supabase with the anon key. This is the single most important security rule in the project — the service-role key and the OpenAI key must never leak into client components.
 - CSV/PDF ingestion runs as TypeScript inside those route handlers, called from the procurement UI. The Phase 1 seed is a one-off `tsx` script (`npm run seed`) that talks to the cloud DB directly via the service-role key.
 - We standardised on **cloud-only Supabase** (no local Docker). Migrations are applied with `npx supabase db push` against the linked cloud project, or pasted into the Supabase dashboard SQL editor.
 
@@ -160,16 +160,16 @@ These were tempting but are **removed** so the MVP stays buildable and the demo 
 
 ## 8. Frameworks, libraries & packages
 
-We picked the stack ourselves rather than letting a generator pick it; that costs a little speed up-front but gives us real server-side route handlers, which make the "never expose the Anthropic key" rule easy to enforce.
+We picked the stack ourselves rather than letting a generator pick it; that costs a little speed up-front but gives us real server-side route handlers, which make the "never expose the OpenAI key" rule easy to enforce.
 
 **Chosen stack:**
 - **Frontend:** **Next.js 16+ (App Router)** + TypeScript, **Tailwind CSS** (+ shadcn/ui added later as needed). Mobile-first responsive web.
 - **Backend:** **Supabase Cloud** — managed PostgreSQL, Auth, Storage, Realtime. Schema lives in `supabase/migrations/*.sql` as versioned SQL.
-- **Server runtime:** Next.js Route Handlers under `app/api/**`. The Anthropic SDK and the Supabase service-role key are used **only there**; the browser uses the anon key.
+- **Server runtime:** Next.js Route Handlers under `app/api/**`. The OpenAI SDK and the Supabase service-role key are used **only there**; the browser uses the anon key.
 - **Hosting:** **Vercel** (Next.js native) for the app; Supabase Cloud for the DB. No local Docker.
 
 **Libraries on top:**
-- **`@anthropic-ai/sdk`** — wrapped in `lib/anthropic.ts` with a 12 s timeout and a canned-JSON fallback for missing key / timeout / error. Used by `POST /api/ingest` (PDF → product rows) and `POST /api/discover` (task → ranked products). Default model: `claude-sonnet-4-5`.
+- **`openai`** — wrapped in `lib/ai.ts` with a timeout and a canned-JSON fallback for missing key / timeout / error. Used by `POST /api/ingest` (PDF → product rows) and `POST /api/discover` (task → ranked products). Default model: `gpt-4o-mini` (override via `OPENAI_MODEL`).
 - **`@supabase/supabase-js` + `@supabase/ssr`** — two clients: `lib/supabase/server.ts` (service role, server-only) and `lib/supabase/browser.ts` (anon key, browser).
 - **Supabase Realtime** — pushes order-status changes live to the foreman screen, with a 5 s polling fallback merged client-side so the live flip never fails on stage.
 - **PapaParse** — CSV ingestion (client-side parse for the upload UI, server-side normalisation in the route handler).
@@ -178,7 +178,7 @@ We picked the stack ourselves rather than letting a generator pick it; that cost
 - **lucide-react** — icons.
 - **No PWA plugin** — Next.js manifest + responsive design is enough for the demo; full PWA install is out of scope.
 
-**The one architecture rule, written down:** *all* Anthropic API calls and *all* `SUPABASE_SERVICE_ROLE_KEY` usage live under `app/api/**`. The browser only sees the anon key. The wrapper in `lib/anthropic.ts` is the single chokepoint for AI calls (timeout + canned fallback); no route handler talks to the SDK directly.
+**The one architecture rule, written down:** *all* OpenAI API calls and *all* `SUPABASE_SERVICE_ROLE_KEY` usage live under `app/api/**`. The browser only sees the anon key. The wrapper in `lib/ai.ts` is the single chokepoint for AI calls (timeout + canned fallback); no route handler talks to the SDK directly.
 
 **Why this and not Lovable:** Lovable would have given us a faster initial scaffold but no separate server runtime, which forces all AI calls into Supabase Edge Functions (Deno) and adds friction to every iteration. With a custom Next.js project on Vercel we get real Route Handlers, simpler env-var handling, easier debugging, and full control over the seed/migration loop — a fair trade for a few hours of extra setup at the start.
 

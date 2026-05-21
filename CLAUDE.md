@@ -21,9 +21,9 @@ MVP — favour a working end-to-end slice over breadth. Full context: `plan.md`.
   phase needs one — not pre-installed in Step 0.
 - **Database / Auth / Realtime:** **Supabase Cloud** (no local Docker). Schema
   lives in `supabase/migrations/*.sql` as versioned SQL.
-- **AI:** `@anthropic-ai/sdk`, model `claude-sonnet-4-5`. Used for
-  contract-PDF extraction and task-based product search. All calls go through
-  `lib/anthropic.ts` (12 s timeout + canned fallback).
+- **AI:** `openai` SDK, model `gpt-4o-mini` (override via `OPENAI_MODEL`).
+  Used for contract-PDF extraction and task-based product search. All calls
+  go through `lib/ai.ts` (timeout + canned fallback).
 - **Hosting:** Vercel.
 - **Charts:** Recharts. **CSV parsing:** PapaParse. **Validation:** Zod.
 
@@ -43,10 +43,10 @@ MVP — favour a working end-to-end slice over breadth. Full context: `plan.md`.
 
 ## Immutable rules
 
-- **All Anthropic API calls AND all uses of `SUPABASE_SERVICE_ROLE_KEY` live
+- **All OpenAI API calls AND all uses of `SUPABASE_SERVICE_ROLE_KEY` live
   in Next.js Route Handlers under `app/api/**` (server-only).** The browser
   uses the **anon key only**. The single chokepoint for AI is
-  `lib/anthropic.ts`; the single chokepoint for privileged DB writes is
+  `lib/ai.ts`; the single chokepoint for privileged DB writes is
   `lib/supabase/server.ts`. This is the most important security rule in the
   project.
 - **Never let the AI invent SKUs or prices.** Extraction is extract-or-null.

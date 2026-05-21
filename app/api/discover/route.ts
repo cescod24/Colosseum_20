@@ -8,13 +8,13 @@
 //      the route returns { items: [], redirect: true }.
 //   2. Fetch the project's active catalog (when Supabase env is present).
 //      Each row is { product_id, supplier_sku, name, unit, product_group }.
-//   3. Ask Anthropic for ≤ 5 items as `{ supplier_sku, reason }`, with the
+//   3. Ask OpenAI for ≤ 5 items as `{ supplier_sku, reason }`, with the
 //      catalog passed in the prompt. The model never sees UUIDs.
 //   4. Validate with Zod (aiDiscoverResponseSchema), drop items whose
 //      supplier_sku is not in the catalog, then resolve to full UUIDs.
 //   5. Canned fallback runs when:
 //        - the A-material short-circuit doesn't fire AND
-//        - ANTHROPIC_API_KEY is missing OR the live call times out / errors,
+//        - OPENAI_API_KEY is missing OR the live call times out / errors,
 //          OR the call returns zero usable items.
 //
 // Local-no-DB mode: when there is no Supabase, the route fabricates a tiny
@@ -24,7 +24,7 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { callAnthropic } from "@/lib/anthropic";
+import { callAI } from "@/lib/ai";
 import {
   aiDiscoverResponseSchema,
   discoverResponseSchema,
@@ -219,25 +219,19 @@ export async function POST(req: Request) {
   const system =
     "You are a German-speaking foreman's assistant. Given a task and the project's catalog, return at most 5 items as JSON: { items: [{ supplier_sku, reason }] }. Each supplier_sku MUST appear verbatim in the catalog. Each reason is one short German sentence specific to the task — no filler.";
 
-  const ai = await callAnthropic<AiDiscoverResponse>({
+  const ai = await callAI<AiDiscoverResponse>({
     system,
-    user: [
-      {
-        type: "text",
-        text: `Aufgabe: ${body.task}\n\nKatalog (supplier_sku\tname (unit, group)):\n${promptCatalog}\n\nReturn JSON only.`,
-      },
-    ],
+    userText: `Aufgabe: ${body.task}\n\nKatalog (supplier_sku\tname (unit, group)):\n${promptCatalog}\n\nReturn JSON only.`,
     fallback,
     parse: (text) => {
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("no JSON in response");
       return aiDiscoverResponseSchema.parse(JSON.parse(m[0]));
     },
-    maxTokens: 1024,
   });
 
   const items = resolve(ai, catalog);
-  const isCanned = ai === fallback || !process.env.ANTHROPIC_API_KEY;
+  const isCanned = ai === fallback || !process.env.OPENAI_API_KEY;
 
   const response: DiscoverResponse = {
     items,
