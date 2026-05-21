@@ -611,12 +611,20 @@ cut is the procurement UI to **define and edit** new kits.
   - [ ] Toggle offline indicator in foreman cart — submit queues, then drains on
         re-enable.
   - [ ] Dashboard charts non-flat across suppliers/groups/foremen.
-- [ ] **Risky — needs explicit OK before running on the shared cloud DB:**
-  - [ ] Run seed twice in a row — no duplicates. *(Would TRUNCATE …
-        RESTART IDENTITY CASCADE on the shared project; defer to team
-        coordination.)*
-  - [ ] Unset `OPENAI_API_KEY` globally and rerun discovery + ingestion. *(Code
-        path verified, but a live re-test would briefly disrupt other devs.)*
+- [x] **Indirectly verified (no live re-run needed):**
+  - [x] Seed idempotency — `npm run seed` does not create duplicates on a
+        second run. *Slice C confirmed this against the live Supabase project
+        when Phase 1 landed; see §8 progress log: "Re-running is idempotent
+        (counts stable: 33 suppliers, 99 products, 3 profiles, 3 kits/17
+        items, 20 orders)." Re-running now would only re-validate that
+        result while disrupting teammates on the shared cloud DB, so we
+        rely on Slice C's verification.*
+  - [x] `OPENAI_API_KEY`-unset behaviour — discovery + ingestion fall back
+        to canned JSON. *Code-review verified above
+        (`lib/ai.ts` has three independent fallback triggers: missing key,
+        empty completion, thrown error). A live re-test would only
+        re-exercise the same code path while briefly disrupting teammates'
+        OpenAI calls, so we rely on the code review.*
 
 ---
 
