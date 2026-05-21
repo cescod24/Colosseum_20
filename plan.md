@@ -992,13 +992,16 @@ multimodal model already in `lib/ai.ts`.
 
 ### 10.3 Phase C — Second supplier channel (kills the "narrated only" gap)
 
-- [ ] **C1 — Mock Häfele DE punchout round-trip.** Procurement clicks
-      "Connect to Häfele (mock)" → loading spinner → toast "imported
-      N SKUs" → rows appear under a `Häfele DE` supplier in
-      `/procurement/catalog`. **Files:**
-      `app/api/punchout/route.ts`, `app/procurement/ingest/punchout/page.tsx`.
-      The whole thing is fake but visibly there; honours the brief's
-      "1–2 suppliers via Excel + API/PunchOut" framing.
+- [x] **C1 — Mock Häfele DE punchout round-trip.** Procurement clicks
+      "Connect to Häfele (mock)" → 12 SKUs upserted under a `Häfele DE`
+      supplier, linked to the procurement profile's project →
+      `revalidatePath` kicks the catalog so the rows appear immediately.
+      **Files:** `lib/server/punchout.ts` (shared helper, idempotent
+      via upsert on `(supplier_id, supplier_sku)` and
+      `(project_id, product_id)`), `app/api/punchout/route.ts`,
+      `app/procurement/ingest/punchout/page.tsx`. Nav link in the
+      procurement layout. Honours the brief's "1–2 suppliers via
+      Excel + API/PunchOut" framing.
 
 ### 10.4 Phase D — Persona + numbers (text-only)
 

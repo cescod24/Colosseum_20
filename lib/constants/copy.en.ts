@@ -54,4 +54,20 @@ export const copyEn: Copy = {
   "project.missing": "No project found for the procurement profile. Run the seed first.",
 
   "comstruct.sent": "Sent to comstruct.",
+
+  "nav.punchout": "Punchout",
+  "punchout.title": "Punchout / IDS",
+  "punchout.subtitle":
+    "Second supplier ingestion channel alongside CSV and contract-PDF uploads.",
+  "punchout.haefele_description":
+    "Mock IDS round-trip to Häfele DE: pulls 12 furniture-fitting and tool SKUs into the catalog under a new Häfele DE supplier and links them to this project.",
+  "punchout.connect": "Connect to Häfele (mock)",
+  "punchout.note":
+    "After connecting, the rows appear in the active catalog —",
+  "punchout.view_catalog": "view catalog",
+  "punchout.success":
+    "✓ Connected. 12 Häfele DE SKUs are now in the catalog and linked to this project.",
+  "punchout.architecture_label": "Why this is mocked",
+  "punchout.architecture_body":
+    "A real punchout / IDS handshake is supplier-by-supplier integration work measured in weeks. The hackathon demo proves the data path: API hit → upsert into `products` keyed by (supplier_id, supplier_sku) → link via `project_products` → instant availability on the foreman discovery search.",
 };

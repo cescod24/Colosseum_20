@@ -60,6 +60,12 @@ export default async function ProcurementLayout({
                 Ingest
               </Link>
               <Link
+                href="/procurement/ingest/punchout"
+                className="font-medium text-zinc-900 hover:text-zinc-600"
+              >
+                {copyEn["nav.punchout"]}
+              </Link>
+              <Link
                 href="/procurement/discover-test"
                 className="font-medium text-zinc-900 hover:text-zinc-600"
               >
