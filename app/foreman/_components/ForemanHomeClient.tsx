@@ -44,15 +44,21 @@ type Props = {
   projectId?: string;
 };
 
-function loadCart(): CartLine[] {
-  if (typeof window === "undefined") return [];
+// Returns null when the cart key has never been written (truly first visit —
+// safe to prefill from lastOrder), or an array (possibly empty) when the user
+// has interacted with the cart at any point, including emptying it after a
+// successful submit. The distinction matters because after a submit, the cart
+// is persisted as `[]`, and we must NOT re-seed it from lastOrder on the next
+// mount.
+function loadCart(): CartLine[] | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return [];
+    if (raw === null) return null;
     const parsed = JSON.parse(raw) as CartLine[];
     return parsed.filter((l) => l && l.product_id && l.qty > 0);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -151,11 +157,18 @@ export function ForemanHomeClient({
     // catalog — e.g. after the DB was re-seeded with fresh UUIDs. Without
     // this the foreman would submit "unknown product" lines the server
     // rejects with a 400.
-    const persisted = loadCart().filter((l) => productById.has(l.product_id));
+    const persistedRaw = loadCart();
+    const persisted = (persistedRaw ?? []).filter((l) =>
+      productById.has(l.product_id),
+    );
     let nextCart: CartLine[] | null = null;
     if (persisted.length) {
       nextCart = persisted;
-    } else if (lastOrder) {
+    } else if (persistedRaw === null && lastOrder) {
+      // Truly first visit (no cart key has ever been written) — prefill with
+      // the foreman's last order. Once the cart has been submitted, the key
+      // exists as `[]` and this branch is skipped so the just-submitted lines
+      // don't reappear on the next mount.
       nextCart = lastOrder.lines.map((l) => ({
         product_id: l.product_id,
         qty: l.qty,
