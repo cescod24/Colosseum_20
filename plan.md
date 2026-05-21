@@ -957,7 +957,7 @@ For a fresh chat picking up Dev B's lane:
   typecheck + lint + test + build before every commit.
 ```
 
-#### `[ ]` 9.3.5 Activate ingested `review` rows into the catalog (any lane)
+#### `[x]` 9.3.5 Activate ingested `review` rows into the catalog (any lane)
 
 **Brief requirement:** "procurement reviews flagged rows → catalog goes
 live." This is the one ingest step that is **not actually wired**, found in

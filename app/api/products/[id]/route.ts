@@ -41,7 +41,7 @@ export async function PATCH(
     .from("products")
     .update(parsed.data)
     .eq("id", id)
-    .select("id, name, product_group, unit_price")
+    .select("id, name, product_group, unit_price, status")
     .maybeSingle();
 
   if (error) {

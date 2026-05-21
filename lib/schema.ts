@@ -139,6 +139,7 @@ export const productPatchInputSchema = z
     name: z.string().min(1).optional(),
     product_group: z.string().min(1).nullable().optional(),
     unit_price: z.number().positive().nullable().optional(),
+    status: z.enum(["active", "review"]).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field must be provided.",

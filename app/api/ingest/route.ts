@@ -115,10 +115,16 @@ async function pdfToIngest(
   });
 }
 
+type PersistedRow = {
+  supplier_sku: string;
+  product_id: string;
+  status: "active" | "review";
+};
+
 async function persist(
   db: SupabaseClient,
   ingest: IngestResponse,
-): Promise<{ persisted: number; review: number }> {
+): Promise<{ persisted: number; review: number; rows: PersistedRow[] }> {
   // Upsert supplier
   const { data: supplierRow, error: supErr } = await db
     .from("suppliers")
@@ -140,6 +146,7 @@ async function persist(
 
   let review = 0;
   let persisted = 0;
+  const persistedRows: PersistedRow[] = [];
   for (const row of ingest.rows) {
     const willReview = isReviewRow(row);
     if (willReview) review++;
@@ -168,6 +175,11 @@ async function persist(
       continue;
     }
     persisted++;
+    persistedRows.push({
+      supplier_sku: row.supplier_sku,
+      product_id: inserted.id as string,
+      status: willReview ? "review" : "active",
+    });
     if (project?.id) {
       await db.from("project_products").upsert(
         { project_id: project.id, product_id: inserted.id },
@@ -175,7 +187,7 @@ async function persist(
       );
     }
   }
-  return { persisted, review };
+  return { persisted, review, rows: persistedRows };
 }
 
 // ---------------------------------------------------------------------------
@@ -239,7 +251,9 @@ export async function POST(req: Request) {
   const activeCount = result.rows.length - reviewCount;
 
   const db = maybeServerClient();
-  let persistInfo: { persisted: number; review: number } | null = null;
+  let persistInfo:
+    | { persisted: number; review: number; rows: PersistedRow[] }
+    | null = null;
   if (db) {
     try {
       persistInfo = await persist(db, result);
@@ -257,6 +271,9 @@ export async function POST(req: Request) {
       active: activeCount,
       review: reviewCount,
     },
-    persisted: persistInfo,
+    persisted: persistInfo
+      ? { persisted: persistInfo.persisted, review: persistInfo.review }
+      : null,
+    persisted_rows: persistInfo?.rows ?? [],
   });
 }

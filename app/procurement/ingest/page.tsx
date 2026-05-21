@@ -5,12 +5,19 @@ import { useMemo, useState } from "react";
 import { categories, type CategoryKey } from "@/lib/constants/categories";
 import { isReviewRow, type IngestedProduct } from "@/lib/schema";
 
+type PersistedRow = {
+  supplier_sku: string;
+  product_id: string;
+  status: "active" | "review";
+};
+
 type IngestResult = {
   mode: "csv" | "pdf";
   supplier_name: string;
   rows: IngestedProduct[];
   summary: { total: number; active: number; review: number };
   persisted: { persisted: number; review: number } | null;
+  persisted_rows?: PersistedRow[];
 };
 
 function badgeFor(row: IngestedProduct) {
@@ -78,9 +85,40 @@ export default function IngestPage() {
   }
 
   async function activateRow(sku: string) {
-    // No-DB local demo: just toggle the UI badge. The route handler below
-    // (Phase 5/6 wiring) would PATCH /api/products/[sku]/activate.
+    // Optimistic UI: toggle badge immediately.
     setActivatedSkus((prev) => new Set([...prev, sku]));
+
+    const productId = result?.persisted_rows?.find(
+      (r) => r.supplier_sku === sku,
+    )?.product_id;
+    if (!productId) {
+      // No DB (offline preview) — keep the badge as a visual toggle.
+      return;
+    }
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "active" }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        console.warn("[ingest] activate PATCH failed", sku, body);
+        // Roll back the badge so procurement sees something went wrong.
+        setActivatedSkus((prev) => {
+          const next = new Set(prev);
+          next.delete(sku);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.warn("[ingest] activate PATCH threw", sku, err);
+      setActivatedSkus((prev) => {
+        const next = new Set(prev);
+        next.delete(sku);
+        return next;
+      });
+    }
   }
 
   return (
