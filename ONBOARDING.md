@@ -16,11 +16,17 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
 - **Foreman:** home (banner + last order + 3 kit tiles + most-ordered + cart,
   offline queue), task discovery (`/foreman/discover` + A-material redirect),
   status list with Aktuell/Verlauf split + per-order hide
-  (`/foreman/orders`), order detail with **delivery-note OCR**
-  (`/foreman/orders/[id]` → camera → `gpt-4o-mini` vision → flips to
-  Delivered), and the `/foreman/info` explainer.
-- **Procurement:** approval queue (`/procurement/queue`, approve/reject →
-  mock comstruct handoff → 8 s delivered flip), project rules
+  (`/foreman/orders`, **whole card tappable → detail; cards show red
+  "{n}/{total} abgelehnt" + green "Vorschlag vom Einkauf" badges when
+  procurement returned a partial decision**), order detail with
+  **delivery-note OCR** (`/foreman/orders/[id]` → camera → `gpt-4o-mini`
+  vision → flips to Delivered) **and per-line decisions** (declined lines
+  show strike-through + reason + a "Vorschlag annehmen" / "Ablehnen" card
+  that adds the suggested product to the cart for a fresh Bestellung), and
+  the `/foreman/info` explainer.
+- **Procurement:** approval queue (`/procurement/queue`, **per-line
+  approve/decline with reason + suggested replacement** → mock comstruct
+  handoff on the approved subset → 8 s delivered flip), project rules
   (`/procurement/project`), catalog admin (`/procurement/catalog`), CSV/PDF
   ingest (`/procurement/ingest`), mock **Häfele punchout**
   (`/procurement/ingest/punchout`), and the **spend dashboard + decision
@@ -28,15 +34,20 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
 - **AI = OpenAI** (`lib/ai.ts`, `gpt-4o-mini`; `OPENAI_API_KEY` +
   `OPENAI_MODEL`). All AI + service-role writes are server-only. Every AI
   call has a canned fallback so a missing/slow key never breaks the demo.
-- **Live updates:** Supabase Realtime + 3 s polling on the foreman orders
-  list; `RefreshPoller` (3 s) on the foreman home + procurement queue +
-  dashboard. The cart self-heals against DB re-seeds (stale product_ids are
-  pruned).
+- **Live updates:** Supabase Realtime + **1 s polling** on the foreman
+  orders list; `RefreshPoller` (**1 s**) on the foreman home + procurement
+  queue + dashboard. The cart self-heals against DB re-seeds (stale
+  product_ids are pruned). The queue's per-line decision form does an
+  optimistic collapse on submit so procurement gets instant feedback while
+  the next poll tick clears the order from the list.
 
 **Infrastructure:**
 
 - Supabase Cloud project `mxftvxbjsumqygtmmztq` is up. **Migrations
-  0001 + 0002 + 0003 are all applied** (verified 2026-05-22). Don't re-apply.
+  0001 + 0002 + 0003 + 0004 are all applied** (verified 2026-05-22).
+  Don't re-apply. 0004 added per-line decision fields to `order_items`
+  (`line_status`, `decline_reason`, `suggested_product_id`,
+  `suggested_qty`) — see plan.md §14 for the feature it unlocked.
 - **Seed has two modes** (both wipe & reseed the *shared* DB — coordinate in
   team chat first):
   - `npm run seed` — full demo dataset (catalog + ~20 historical orders).

@@ -1566,3 +1566,178 @@ For a fresh chat continuing §13:
   Slice C (ingest, discover backend, seed) — untouched.
 - New OPENAI calls happen via existing lib/ai.ts (callAI + transcribeAudio).
 ```
+
+---
+
+## 14. Procurement partial decisions + 1 s live polling (MERGED to main)
+
+> Slice B follow-up. Procurement is no longer forced into "approve the
+> whole order or reject the whole order"; each line is decided
+> independently with a free-text reason and an optional suggested
+> replacement product the foreman can one-tap into a fresh Bestellung.
+> Polling cadence dropped from 3 s → 1 s everywhere so the queue +
+> orders list feel instant. Decision card collapses optimistically the
+> moment the server acks, so procurement never waits for the next tick.
+
+### 14.1 Status
+
+- [x] All commits merged to `main` (chain: `2ee1580` → `cf556e7` →
+      `a25ae6a` → `120758b` → `f6c0156`, ribasati su `828ad61`).
+- [x] Migration `0004_partial_order_decisions.sql` applied to the
+      shared Supabase project (verified 2026-05-22).
+- [x] `npm run typecheck && npm run lint && npm run build && npm test`
+      green after every commit.
+- [x] [ONBOARDING.md](./ONBOARDING.md) "Current state" updated.
+
+### 14.2 Commit ladder (each independently green)
+
+1. `2ee1580` — **feat(orders): per-line approve/decline with reason +
+   suggested alternative.** Schema 0004 + `decideOrderLines()` +
+   `lineDecisionsEnabled()` probe + new POST shape on
+   `/api/orders/[id]/decide` (backwards compatible with `{action}`) +
+   `OrderDecisionForm` client island + `LineDecisionsList` on foreman
+   detail + copy.de/copy.en strings.
+2. `cf556e7` — **fix(orders): disambiguate `order_items→products`
+   joins after 0004.** PostgREST embed broke because 0004 added a
+   second FK (`suggested_product_id` → `products`). Every implicit
+   `products (...)` embed was repinned to
+   `products!order_items_product_id_fkey` (queue, foreman detail
+   legacy path, `lib/server/orders.ts` approveOrder + decideOrderLines,
+   procurement dashboard).
+3. `a25ae6a` — **feat(foreman): whole-card tap into order detail +
+   decline/suggestion badges.** Entire `<li>` on `/foreman/orders` is
+   now the Link (chevron affordance, dismiss/restore overlaid). Red
+   "{declined}/{total} abgelehnt" + emerald "Vorschlag vom Einkauf"
+   badges when relevant. `loadForemanOrders()` and
+   `/api/orders/list` try the rich select first, fall back to the
+   legacy select if 0004 isn't applied — so `main` keeps demoing
+   regardless of the migration state.
+4. `120758b` — **fix(foreman): cart no longer re-fills with the last
+   order after submit.** `loadCart()` is now tri-state: `null` =
+   localStorage key never written (safe to prefill from lastOrder),
+   `[]` = user emptied the cart (don't prefill). Note: Dev B also
+   referenced this in §13.4d.
+5. `f6c0156` — **feat(live): poll every 1 s + optimistic collapse on
+   procurement decisions.** All `RefreshPoller` callers and the
+   `OrdersListClient` poll + cart-count interval moved 3 s → 1 s.
+   `OrderDecisionForm` now flips to a `decided` state on success and
+   collapses to a one-line banner so procurement gets instant
+   feedback. The 1 s poll then sweeps the order off the queue.
+
+### 14.3 Pipeline (file refs)
+
+- Schema: `supabase/migrations/0004_partial_order_decisions.sql` —
+  additive ALTER on `order_items`:
+  `line_status` (default 'approved'), `decline_reason`,
+  `suggested_product_id` (FK), `suggested_qty`.
+- Validation: `lib/schema.ts::decideOrderLinesInputSchema` —
+  per-line `{order_item_id, decision, reason?, suggested_product_id?,
+  suggested_qty?}`, qty tolerant of strings, refine so a suggestion
+  needs a positive qty.
+- Server: `lib/server/orders.ts::decideOrderLines()` writes line-level
+  status, recomputes total + comstruct payload from approved subset,
+  flips order to `ordered` (any approval) or `rejected` (all decline),
+  fires `scheduleDeliveredFlip()`. `lineDecisionsEnabled()` is a
+  cached probe so callers can fall back to the legacy whole-order
+  path on a DB without 0004 applied.
+- Route: `app/api/orders/[id]/decide/route.ts` accepts either
+  `{lines:[...]}` (new) or `{action}` (legacy).
+- Procurement UI: `app/procurement/queue/page.tsx` server-fetches
+  orders + suggestion catalog (only when `lineDecisionsEnabled`); the
+  per-order body is rendered by
+  `app/procurement/queue/OrderDecisionForm.tsx` client island —
+  per-line approve/decline toggle, reason textarea, suggestion
+  `<select>` from project catalog, live "Approved total" header,
+  Approve-all / Reject-all shortcuts, optimistic `decided` collapse.
+- Foreman detail: `app/foreman/orders/[id]/page.tsx` selects the rich
+  shape via the two-FK alias
+  (`products!order_items_product_id_fkey` and
+  `suggested_product:products!order_items_suggested_product_id_fkey`),
+  resolves `suggested_product_id` separately so the FK alias stays
+  simple, hands lines to
+  `app/foreman/orders/[id]/LineDecisionsList.tsx`.
+  - Declined lines render strike-through + a red reason line.
+  - Suggestions render the emerald "Vorschlag vom Einkauf" card with
+    "Vorschlag annehmen" (adds to localStorage `siteorder.cart.v1`,
+    routes to `/foreman`) and "Ablehnen" (dismisses via
+    `siteorder.suggestions.dismissed.v1`).
+- Foreman orders list: `app/foreman/_components/OrdersListClient.tsx`
+  whole-card link + two badges aggregated from per-line fields
+  carried via `loadForemanOrders()` and `/api/orders/list`.
+- Polling: `components/RefreshPoller.tsx` default 1000, three
+  explicit callers (foreman home, procurement queue, dashboard) all
+  1000, `OrdersListClient` POLL_MS + cart-count interval 1000.
+
+### 14.4 Verification phrases (live demo path)
+
+1. Foreman tab — submit an order > 200 CHF (trips the project
+   threshold and lands in pending).
+2. Procurement tab — within 1 s the new pending order shows up at
+   the top of `/procurement/queue`.
+3. On that order, flip one line to **Decline**, write a short reason
+   (e.g. "Out of stock — try Würth alternative"), pick a replacement
+   from the dropdown, set qty.
+4. Click **Submit decision** — the form body collapses immediately
+   to the green "✓ Decision applied — handing off to comstruct…"
+   banner; within 1 s the whole card disappears.
+5. Foreman tab — the order's pill flips Approved → Ordered live; on
+   `/foreman/orders` the card shows the red "1/3 abgelehnt" + green
+   "Vorschlag vom Einkauf" badges.
+6. Foreman taps the card → detail page shows the declined line
+   struck through with the reason; the suggestion card has the
+   "Vorschlag annehmen" button.
+7. Tap "Vorschlag annehmen" → the suggested product is in the cart
+   on `/foreman`; submit it as a fresh Bestellung.
+
+### 14.5 Edge cases (handled)
+
+- DB without 0004 applied: `lineDecisionsEnabled()` returns false →
+  the queue page renders the legacy whole-order Approve / Reject
+  buttons; `loadForemanOrders()` + `/api/orders/list` fall back to the
+  legacy select; foreman detail also uses the legacy select. No
+  500s, no missing UI.
+- Approval failure: optimistic banner only renders on `res.ok` — if
+  the POST 5xxs, the buttons stay enabled and the error toast shows.
+- Stale suggestion: if procurement suggests a product that was later
+  deleted, the suggested_product join returns null and the foreman
+  detail just doesn't render the card (no broken link).
+- Empty suggestion: the schema refine rejects a `suggested_product_id`
+  without a positive `suggested_qty`, so we never write half-rows.
+
+### 14.6 Out of scope (do NOT re-propose)
+
+- Persisting whether the foreman accepted vs declined the suggestion
+  in the DB — kept client-side in `siteorder.suggestions.dismissed.v1`
+  on purpose so procurement isn't blocked waiting for the foreman.
+- Threaded back-and-forth ("foreman counter-suggests"): the foreman
+  either takes the suggestion (one tap → cart) or moves on. Anything
+  richer is a Slack conversation, not a UI surface.
+- Hard cross-checks on `confirm-delivery` OCR — see the chat thread:
+  the current `confidence` floor + canned fallback is intentional for
+  the demo. A real cross-check (match `extract.supplier_name` to the
+  order's supplier(s), `line_count` vs order's lines) is post-demo.
+
+### 14.7 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §14:
+- §14 is MERGED to main (last commit 828ad61). Migration 0004 is
+  applied on the shared Supabase project. Do not re-apply.
+- Polling is 1 s everywhere (RefreshPoller default + OrdersListClient).
+  If you change a polling site, change it in lib/constants if you
+  want a single source of truth — currently inlined per file.
+- The OrderDecisionForm `decided` state is the optimistic collapse:
+  the queue feels instant even though the parent server component
+  only re-renders on the next 1 s tick.
+- Every `order_items → products` PostgREST embed MUST be pinned to
+  `products!order_items_product_id_fkey`. The implicit `products (...)`
+  syntax is permanently ambiguous now that 0004 added the second FK.
+  If you see "Could not embed because more than one relationship was
+  found", that's the cause — grep the offender and add the alias.
+- `lineDecisionsEnabled()` is cached per server process. If you ever
+  add migration 0005 that drops a 0004 column, restart the dev
+  server to reset the probe.
+- Pitch script (pitch.md §4) was NOT updated. The partial-decline
+  flow is a strong "wow moment" candidate around the 00:35 mark
+  (procurement's slot) — propose it before changing the script.
+```
