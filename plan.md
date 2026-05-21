@@ -692,3 +692,202 @@ them:
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
 - _Phase 9 (stretch — spend dashboard) —_ (not started)
 - _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
+
+---
+
+## 9. Brief audit (May 2026) — what's done, what's cut, what's open
+
+> Audited the actual codebase against the original comstruct hackathon
+> brief ("Ordering for the construction site"). This section is the
+> resumable workbook: a fresh Claude Code chat opening this repo should
+> read §9 in particular and pick a `[ ]` item to plan + implement.
+
+### 9.1 Brief-to-build coverage (summary)
+
+| Brief requirement | Status | Where |
+|---|---|---|
+| Product discovery without knowing SKU | Built | `app/foreman/discover/page.tsx`, `/api/discover` |
+| Cart + order in < 1–2 min | Built | `app/foreman/page.tsx`, `/api/orders` |
+| Status pipeline (Draft → … → Delivered/Rejected) | Built | `app/foreman/orders/page.tsx`, `StatusPill.tsx`, `/api/orders/list` 3 s poll + Realtime |
+| Plain-language C-material explainer | Built (banner) | `app/foreman/_components/ExplainerBanner.tsx` |
+| Misuse prevention (A-material blocklist) | Built | `lib/constants/blocklist.ts` applied at search **and** ingestion |
+| CSV ingestion | Built | `/api/ingest` (PapaParse path) |
+| Contract-PDF ingestion (OpenAI + Zod) | Built | `/api/ingest` (PDF path) + `lib/ai.ts` + `lib/schema.ts` |
+| Normalized product model | Built | `supabase/migrations/0001_init.sql` |
+| Product groups + 3 seeded kits | Built | `material_sets`, `material_set_items`, kit tiles |
+| Use-case / task-based search | Built | `/api/discover` + `app/foreman/discover/page.tsx` |
+| Favourites / recent orders | Built | "Dein letzter Auftrag" + Top-5 |
+| Approval thresholds + restricted groups | Built | `lib/rules.ts`, `app/procurement/project/page.tsx`, `app/procurement/queue/page.tsx` |
+| comstruct handoff (mock) | Built | `lib/server/orders.ts` writes `mock_comstruct_orders`, 8 s delivered flip |
+| Excel + PDF supplier ingestion demo | Built | ACME contract onboards live in `/procurement/ingest` |
+| Per-line discount handling | Cut by design | §7: collapsed into effective unit_price |
+| Good / better / best variants | Cut by design | §7 |
+| Guided wizard (trade → area → kit) | Cut by design | §7: substituted by kit tiles + task search |
+| Punchout / IDS live integration | Cut by design | §2: narrated, no UI |
+| Two-tier approval (PM vs central procurement) | Cut by design | §2: collapsed to one role |
+| Procurement-side kit editor | Cut by design | Phase 10 §7 |
+| `/info` formal C-material explainer route | **Open** | §9.3 item below |
+| Spend dashboard (per supplier / group / foreman) | **Open** | §9.3 item below |
+| Catalog admin UI (rename / re-group activated rows) | **Open** | §9.3 item below |
+| Per-project price override | **Open (risky)** | §9.3 item below |
+
+### 9.2 Items deliberately cut (do NOT re-propose these)
+
+These were debated in plan.md §2 and §7 already. A fresh chat should treat
+them as locked decisions unless the user explicitly reopens the question:
+
+- Guided order wizard — substituted by kit tiles + task search.
+- Good / better / best variants — flat list only.
+- Punchout / IDS — narrated in the pitch, no mock endpoint.
+- PM vs central procurement two-tier approval — one role only; schema is
+  generic enough to add later.
+- Procurement-side kit editor — schema (`material_sets`,
+  `material_set_items`) is in place so the demo claim is honest.
+- Per-line discount metadata — collapsed at ingest into effective
+  `unit_price`.
+
+### 9.3 Open items — checkboxes
+
+Each item below is a unit of work. Tick `[ ]` → `[x]` when complete and
+append a one-line note under the item with the commit SHA and verification.
+
+#### `[ ]` 9.3.1 Phase 9 — Spend dashboard (Dev B lane)
+
+**Brief requirement:** §2.4 "Basic spend analytics: C-material spend per
+project, per supplier, per product group. Which projects / foremen
+generate the most tail spend?"
+
+**Files to create**
+
+- `app/procurement/dashboard/page.tsx` — server component, three Recharts
+  visualisations (spend by supplier bar, spend by product_group bar, top
+  foremen table).
+- Link in `app/procurement/layout.tsx` nav (alongside Queue, Project,
+  Ingest, Discover).
+
+**Existing utilities to reuse**
+
+- `lib/supabase/server.ts` → `getServerClient()`
+- `lib/server/demo-profile.ts` → `resolveProfileForRole()` (filter to the
+  procurement profile's project_id)
+- `recharts` is already in `package.json`
+
+**Out of scope:** multi-project filtering UI (single seeded project is
+fine); date-range pickers.
+
+**Verification:** start dev server, log in as `procurement` → visit
+`/procurement/dashboard` → bars have non-flat data against the seeded ~20
+orders; numbers match a manual SQL `SUM(qty * unit_price) GROUP BY
+supplier_id` against the live DB.
+
+#### `[ ]` 9.3.2 Phase 8 — Formal `/info` C-material explainer route (any lane)
+
+**Brief requirement:** §1.2 "Explain C-materials clearly … via microcopy,
+onboarding screens, tooltips, or the information architecture itself."
+The dismissible home banner is the core; this is the deeper page.
+
+**Files to create**
+
+- `app/foreman/info/page.tsx` — one-screen plain-German explanation: what
+  counts as C-Material (with category icons), what doesn't (Beton/Stahl/
+  Bewehrung/Schalung), and how to get those instead ("frag deinen
+  Bauleiter").
+- Small "?" icon link in the foreman header pointing to `/foreman/info`.
+
+**Existing utilities to reuse**
+
+- `lib/constants/copy.de.ts` for strings
+- `lib/constants/categories.ts` for the icon list
+- The same A-material redirect copy used by `DiscoverClient.tsx`
+
+**Out of scope:** any new copy beyond what already exists in `copy.de.ts`;
+new translations.
+
+**Verification:** dev server, foreman role, click "?" → `/foreman/info`
+renders, "Back" goes to `/foreman`. Re-visit `/foreman/discover` and
+search "Beton" → the same redirect copy is shown.
+
+#### `[ ]` 9.3.3 Catalog admin UI — rename / re-group activated products (cross-lane)
+
+**Brief requirement:** §2.1 "A minimal catalog admin UI where procurement
+can clean up, rename and group C-materials." Today the review screen only
+toggles `status` from `review` to `active`; after activation, rows can't
+be edited from the UI.
+
+**Files to create / modify**
+
+- `app/procurement/catalog/page.tsx` — paginated list of `status='active'`
+  products in the current project with inline editable `name`,
+  `product_group`, optional `unit_price`. Server actions write via the
+  PATCH below.
+- `app/api/products/[id]/route.ts` — `PATCH` handler. Zod-validated body;
+  procurement-role check; `getServerClient().from('products').update(...)`.
+- Link from `app/procurement/layout.tsx` nav.
+
+**Existing utilities to reuse**
+
+- `lib/supabase/server.ts`, `lib/server/demo-profile.ts`, `lib/schema.ts`
+  (add `productPatchInputSchema`)
+
+**Out of scope:** bulk operations, history/audit log, deletion (use the
+review state for cleanup instead).
+
+**Verification:** dev server, procurement role, visit `/procurement/catalog`,
+rename one product, refresh → name persists in DB; submit a foreman order
+for that product → queue shows the new name.
+
+#### `[ ]` 9.3.4 Per-project price override (cross-lane, schema change — HIGH RISK)
+
+**Brief requirement:** §2.1 "Handling different price structures
+(contract prices, discounts, **project-specific prices**)." Today
+`project_products` is a link only.
+
+**Why high risk:** touches the order-creation contract that three lanes
+depend on. **Do not start without explicit team agreement** (message Dev A
+and Dev C before opening a PR).
+
+**Files to create / modify**
+
+- `supabase/migrations/0003_project_product_price.sql` — additive: add
+  nullable `unit_price numeric(12, 4)` to `project_products`.
+- `app/api/orders/route.ts` — when computing line `unit_price`, look up
+  `project_products.unit_price` first; if `null`, fall back to
+  `products.unit_price`.
+- `app/procurement/catalog/page.tsx` (if 9.3.3 lands first) — add an
+  "override price for this project" column.
+
+**Existing utilities to reuse**
+
+- Same as 9.3.3.
+
+**Verification:** dev server, set an override of `1.00 CHF` on a product
+in `project_products`, submit a foreman order containing that product →
+order's `total` reflects `1.00 × qty`, not the catalog price; existing
+products without override behave unchanged.
+
+### 9.4 Continuity notes for a new Claude session
+
+```
+For a fresh chat picking up Dev B's lane:
+- Read ONBOARDING.md, then CLAUDE.md, then this file. §9 is the live
+  workbook; pick a [ ] item and propose a plan.
+- The user is Dev B (procurement / order engine lane).
+- Branch model: work on `dev-b`, fast-forward `main` at each landing.
+- Migration 0002 added 'rejected' to orders.status CHECK; migration
+  0003 (proposed in 9.3.4) is NOT yet written.
+- Cookie→profile: lib/server/demo-profile.ts uses ILIKE on a stable
+  per-role needle ("Polier A" / "Polier B" / "Bauleitung") — set by Dev A
+  in commit 38ca82e because the seed uses site-realistic display names,
+  not the literal cookie value.
+- /api/orders/list is the 3 s polling endpoint that
+  app/foreman/_components/OrdersListClient.tsx hits; both were tightened
+  from 5 s to 3 s in 0976ec9 for a snappier demo flip.
+- All API routes go through getServerClient() (service-role) on the
+  server. SUPABASE_SERVICE_ROLE_KEY never appears in client code.
+- Anthropic was swapped to OpenAI (gpt-4o-mini) via lib/ai.ts in
+  cb23ea3; lib/anthropic.ts no longer exists.
+- The shared `lib/` surface (schema.ts, rules.ts, role.ts, supabase/*,
+  constants/*) is locked — change only with team agreement.
+- Tests: `npm test` runs lib/rules.test.ts under tsx; gate is
+  typecheck + lint + test + build before every commit.
+```
