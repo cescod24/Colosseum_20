@@ -97,7 +97,7 @@ export default function IngestPage() {
         </div>
         <p className="text-sm text-zinc-600">
           CSV / Excel <span className="text-zinc-400">or</span> contract PDF.
-          PDFs go through Anthropic; rows with missing price, missing unit,
+          PDFs go through OpenAI; rows with missing price, missing unit,
           or confidence &lt; 0.7 land in <em>review</em> for you to confirm.
         </p>
       </header>

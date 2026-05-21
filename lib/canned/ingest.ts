@@ -1,5 +1,5 @@
-// Canned Anthropic ingestion responses. Used when:
-//   - ANTHROPIC_API_KEY is missing (local demo without a key)
+// Canned ingestion responses (OpenAI). Used when:
+//   - OPENAI_API_KEY is missing (local demo without a key)
 //   - the live call times out or errors
 //
 // Two fixtures, matched against the uploaded filename:

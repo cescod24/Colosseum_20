@@ -116,7 +116,7 @@ export default function DiscoverTestPage() {
               {body.items.length} item{body.items.length === 1 ? "" : "s"}
             </span>
             <span>·</span>
-            <span>{body.canned ? "Canned response" : "Live Anthropic call"}</span>
+            <span>{body.canned ? "Canned response" : "Live OpenAI call"}</span>
           </div>
           {body.items.length === 0 ? (
             <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600 ring-1 ring-zinc-200">

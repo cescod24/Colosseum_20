@@ -5,7 +5,7 @@
 //   supplier_name  — optional supplier override; default derived from PDF/CSV
 //
 // CSV path: PapaParse → apply A-material blocklist → normalise.
-// PDF path: lib/anthropic.ts → Zod validation → canned fallback on missing
+// PDF path: lib/ai.ts → Zod validation → canned fallback on missing
 //           key / timeout / error.
 //
 // Persistence:
@@ -20,7 +20,7 @@
 import { NextResponse } from "next/server";
 import Papa from "papaparse";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { callAnthropic } from "@/lib/anthropic";
+import { callAI } from "@/lib/ai";
 import {
   ingestResponseSchema,
   isReviewRow,
@@ -97,25 +97,14 @@ async function pdfToIngest(
   const fallback = cannedIngestFor(file.name);
 
   const system =
-    "You extract construction supply contract rows into JSON. Never invent SKUs or prices — output null when uncertain. Return exactly: { supplier_name: string, rows: Array<{ name, supplier_sku, unit, unit_price, product_group, hazardous, confidence }> }.";
+    "You extract construction supply contract rows into JSON. Never invent SKUs or prices — output null when uncertain. Return JSON exactly: { supplier_name: string, rows: Array<{ name, supplier_sku, unit, unit_price, product_group, hazardous, confidence }> }.";
 
-  return callAnthropic<IngestResponse>({
+  return callAI<IngestResponse>({
     system,
-    user: [
-      {
-        type: "document",
-        source: {
-          type: "base64",
-          media_type: "application/pdf",
-          data: base64,
-        },
-      },
-      {
-        type: "text",
-        text:
-          `Extract every supply row from the attached contract. Skip "Alternative Position" rows. Ignore Swiss NPK reference codes (e.g. 151.412.211); use the supplier's own Artikel code as supplier_sku. Ignore the trailing summary block (Summe, MWST, Gewicht, Zahlungsbedingungen). If a per-line Rabatt % or TZ Zuschlag is present, use Total / Menge as the effective unit_price. unit_price MUST be null when the contract says "auf Anfrage" or gives a price range. unit MUST be null when missing. confidence is in [0,1]; use < 0.7 for any row that needed guesswork. Drop A-material rows entirely (Beton, Stahl, Bewehrung, Schacht, Granit, Pflasterstein etc.). Supplier name fallback: "${supplierFallback}". Output JSON only.`,
-      },
-    ],
+    userText:
+      `Extract every supply row from the attached contract PDF as JSON. Skip "Alternative Position" rows. Ignore Swiss NPK reference codes (e.g. 151.412.211); use the supplier's own Artikel code as supplier_sku. Ignore the trailing summary block (Summe, MWST, Gewicht, Zahlungsbedingungen). If a per-line Rabatt % or TZ Zuschlag is present, use Total / Menge as the effective unit_price. unit_price MUST be null when the contract says "auf Anfrage" or gives a price range. unit MUST be null when missing. confidence is in [0,1]; use < 0.7 for any row that needed guesswork. Drop A-material rows entirely (Beton, Stahl, Bewehrung, Schacht, Granit, Pflasterstein etc.). Supplier name fallback: "${supplierFallback}". Output JSON only.`,
+    pdfBase64: base64,
+    pdfFilename: file.name,
     fallback,
     parse: (text) => {
       const m = text.match(/\{[\s\S]*\}/);
@@ -123,7 +112,6 @@ async function pdfToIngest(
       const obj = JSON.parse(m[0]);
       return ingestResponseSchema.parse(obj);
     },
-    maxTokens: 4096,
   });
 }
 

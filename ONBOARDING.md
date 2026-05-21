@@ -20,7 +20,7 @@ before the three-way parallel work begins. After Step 0 the repo has:
   RLS policies written as if Supabase Auth were live. The demo bypasses RLS
   via the service-role key.
 - Typed stubs for every shared module the team will import on day one:
-  - `lib/anthropic.ts` — wrapped client with timeout + canned-fallback
+  - `lib/ai.ts` — wrapped OpenAI client with timeout + canned-fallback
     plumbing (the real prompts land per-phase)
   - `lib/rules.ts` — pure `decide(total, items, rules)` (the implementation
     is the three branches from plan.md §Phase 4; usable today)
@@ -44,8 +44,8 @@ before the three-way parallel work begins. After Step 0 the repo has:
   their own from `.env.example` before running `npm run seed`.
 - No real foreman or procurement UI — only placeholders so the role switcher
   has somewhere to land.
-- No Anthropic prompts. The wrapper exists; phases 6 and 7 write the
-  prompts.
+- No AI prompts in Step 0. The wrapper exists; phases 6 and 7 write the
+  prompts (now landed on `main` — slice C).
 - shadcn/ui is initialised but only the default `Button` is installed.
   Phases add components on demand via `npx shadcn@latest add <name>`.
 
@@ -87,7 +87,7 @@ cp .env.example .env.local
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
 #   SUPABASE_SERVICE_ROLE_KEY   (server-only — never import into a client component)
-#   ANTHROPIC_API_KEY           (server-only — used via lib/anthropic.ts)
+#   OPENAI_API_KEY              (server-only — used via lib/ai.ts)
 
 # Apply migrations to the shared Supabase Cloud project (no local Docker):
 # either

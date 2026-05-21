@@ -11,7 +11,7 @@
 > bottom.
 
 > **Stack decision (locked):** Custom Next.js 16+ (App Router) on Vercel +
-> Supabase Cloud + Anthropic SDK. **Lovable was evaluated and dropped** so
+> Supabase Cloud + OpenAI SDK. **Lovable was evaluated and dropped** so
 > we keep real server-side route handlers for AI/secret-bearing code and
 > avoid the no-separate-server constraint of Lovable's React+Supabase
 > generator. The trade is a slower start, paid for in faster iteration
@@ -36,7 +36,7 @@ parallel against the locked schema + locked `lib/` surface.
   - `lib/constants/{categories,chips,copy.de,copy.en,blocklist}.ts`
   - `lib/schema.ts` — Zod schemas for AI outputs and order submissions
   - `lib/rules.ts` — pure `decide()` for the approval engine
-  - `lib/anthropic.ts` — wrapped client (timeout + canned fallback)
+  - `lib/ai.ts` — wrapped OpenAI client (timeout + canned fallback)
   - `lib/role.ts` — `x-demo-user` cookie helpers
   - `lib/supabase/{server,browser}.ts` — service-role and anon clients
 
@@ -54,7 +54,7 @@ imported by every screen) MUST be agreed in Step 0 and pushed to `main`
   `POST /api/orders`) + Phase 5 (approval queue + project config + mocked
   comstruct handoff).
 - **Slice C — Ingestion + discovery (Dev C):** Phase 6 (CSV/PDF ingest with
-  Anthropic + review screen) + Phase 7 (task-based discovery + A-material
+  OpenAI + review screen) + Phase 7 (task-based discovery + A-material
   redirect).
 
 Stretch (Phases 8 / 9) is picked up by whichever slice lands first.
@@ -123,11 +123,12 @@ Demo flow (Definition of Done):
 - [x] **Status auto-advance:** Approve → immediately `ordered` (when handoff row
       written) → ~8 s server timer → `delivered`. SPEC's five-state pill
       (Draft · Pending · Approved · Ordered · Delivered) intact.
-- [x] **Anthropic calls:** Server-only (`app/api/**`). One wrapper in
-      `lib/anthropic.ts` — try real call with a 12 s timeout, fall back to canned
+- [x] **OpenAI calls:** Server-only (`app/api/**`). One wrapper in
+      `lib/ai.ts` — try real call with a timeout, fall back to canned
       JSON on missing key / timeout / error. Canned responses are
-      representative, not perfect. **Service role and Anthropic key live only
-      server-side; browser uses anon key.**
+      representative, not perfect. **Service role and OpenAI key live only
+      server-side; browser uses anon key.** (Switched from Anthropic to
+      OpenAI — `gpt-4o-mini` — because the team has an OpenAI key.)
 - [x] **Discovery shape:** 3–5 items max, each with a **specific** one-line "why
       this fits" reason. Empty result → "Nichts gefunden — probier eine
       Kategorie." with a button to the icon grid.
@@ -232,7 +233,7 @@ app/
 lib/
   supabase/server.ts           service-role client (server-only)
   supabase/browser.ts          anon-key client (browser)
-  anthropic.ts                 wrapped client (timeout + canned fallback)
+  ai.ts                        wrapped OpenAI client (timeout + canned fallback)
   rules.ts                     pure decide() — unit-tested
   schema.ts                    Zod schemas for AI outputs + order submissions
   role.ts                      role-switcher cookie helpers (server + browser)
@@ -266,12 +267,12 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - [x] Initialise Next.js 14+ (App Router) + TypeScript + Tailwind + shadcn/ui.
       (Shipped Next.js 16.2.6 + React 19 + Tailwind v4 + shadcn/ui `init`
       with `components/ui/button.tsx` and `lib/utils.ts`.)
-- [x] Install: `@anthropic-ai/sdk`, `@supabase/supabase-js`,
+- [x] Install: `openai`, `@supabase/supabase-js`,
       `@supabase/ssr`, `papaparse`, `zod`, `recharts`, `lucide-react`.
       (Also `@types/papaparse` and `tsx` as devDeps for the seed script.)
 - [x] Add `.env.example` with placeholder names only:
       `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-      `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`.
+      `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
 - [ ] Create `.env.local` (gitignored) — values supplied by the user.
       (The repo can't ship secrets — each dev creates their own
       `.env.local` from `.env.example` before running `npm run seed`.)
@@ -427,8 +428,8 @@ This phase also **onboards the ACME supplier live** by uploading
 - [x] CSV path: PapaParse → POST `/api/ingest` (form-data, file detected by
       type/name) → apply A-material blocklist + normalisation → INSERT as
       `status='active'`.
-- [x] PDF path: POST `/api/ingest` with PDF as a document block → Anthropic
-      (`claude-sonnet-4-5`) → JSON of rows with
+- [x] PDF path: POST `/api/ingest` with PDF as a base64 file part → OpenAI
+      (`gpt-4o-mini`) → JSON of rows with
       `{ name, supplier_sku, unit, unit_price|null, product_group|null,
       hazardous, confidence }` → Zod validate → rows with `unit_price=null`,
       `unit=null`, or `confidence < 0.7` go to `status='review'` (via
@@ -453,7 +454,7 @@ This phase also **onboards the ACME supplier live** by uploading
       "Bestätigen & aktivieren" toggles to "Activated" (visual only in the
       local no-DB demo — a real PATCH against `products.status` is the
       next step once Supabase is wired).
-- [x] `lib/anthropic.ts` wrapper: 12 s timeout, falls back to canned JSON on
+- [x] `lib/ai.ts` wrapper: timeout, falls back to canned JSON on
       missing key / timeout / error. Canned responses for **both** PDFs
       authored in [lib/canned/ingest.ts](lib/canned/ingest.ts):
   - [x] Clean PDF (`fake_contract_products_with_logo.pdf`) → **8 active rows**
@@ -483,7 +484,7 @@ This phase also **onboards the ACME supplier live** by uploading
         Reuses the same localStorage cart as the home so submit goes through
         the shared CartBar.
   - [x] Empty result → "Nichts gefunden — probier eine Kategorie."
-- [x] `/api/discover`: fetch project's active catalog → pass to Anthropic with
+- [x] `/api/discover`: fetch project's active catalog → pass to OpenAI with
       strict prompt:
   - JSON `{ items: [{ supplier_sku, reason }] }`, ≤ 5 items (the route
     resolves SKUs to `product_id` server-side so the model never sees UUIDs).
@@ -541,14 +542,14 @@ cut is the procurement UI to **define and edit** new kits.
 
 ## 5. Cross-cutting build rules (always apply)
 
-- [ ] **Never** call Anthropic or use `SUPABASE_SERVICE_ROLE_KEY` from client
+- [ ] **Never** call OpenAI or use `SUPABASE_SERVICE_ROLE_KEY` from client
       components. All AI + privileged DB writes live in `app/api/**`.
 - [ ] **Never** let the AI invent SKUs or prices. Validate every AI response
       with Zod **before** it touches the DB. Null prices / low confidence →
       `status='review'`.
 - [ ] All foreman-facing copy in plain German (no "Klasse C"); all procurement
       copy in English. All tunable strings live in `lib/constants/copy.*.ts`.
-- [ ] All AI calls go through the single wrapper in `lib/anthropic.ts` (timeout
+- [ ] All AI calls go through the single wrapper in `lib/ai.ts` (timeout
       + canned fallback). No direct SDK calls from route handlers.
 - [ ] Foreman screens never display per-item `unit_price`. Only the cart total.
 - [ ] A-material blocklist applied at search **and** at ingestion.
@@ -573,7 +574,7 @@ cut is the procurement UI to **define and edit** new kits.
         row exists with comstruct-shaped payload → ~8 s later Delivered.
   - [ ] Search "Beton" → friendly redirect, no API call.
   - [ ] (Stretch.) Dashboard charts non-flat across suppliers/groups/foremen.
-- [ ] Unset `ANTHROPIC_API_KEY` and rerun discovery + ingestion — both work
+- [ ] Unset `OPENAI_API_KEY` and rerun discovery + ingestion — both work
       via canned fallback; UI identical.
 - [ ] Run seed twice in a row — no duplicates.
 - [ ] Toggle offline indicator in foreman cart — submit queues, then drains on
@@ -669,7 +670,7 @@ them:
   and the authored messy PDF. Per-row activate is a visual toggle until the
   DB is wired. Verified locally: clean PDF → 8 active, messy PDF → 4 review.
 - _Phase 7 —_ **backend done** (slice C, `dev-c` branch). `/api/discover`
-  (catalog → Anthropic → Zod → SKU→UUID resolve), server-side A-material
+  (catalog → OpenAI → Zod → SKU→UUID resolve), server-side A-material
   redirect, canned fallbacks for the 3 rehearsed prompts, and a
   `/procurement/discover-test` dev tool. The foreman-facing UI is slice A.
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
