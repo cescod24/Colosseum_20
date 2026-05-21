@@ -545,26 +545,26 @@ cut is the procurement UI to **define and edit** new kits.
 
 ## 5. Cross-cutting build rules (always apply)
 
-- [ ] **Never** call OpenAI or use `SUPABASE_SERVICE_ROLE_KEY` from client
+- [x] **Never** call OpenAI or use `SUPABASE_SERVICE_ROLE_KEY` from client
       components. All AI + privileged DB writes live in `app/api/**`.
-- [ ] **Never** let the AI invent SKUs or prices. Validate every AI response
+- [x] **Never** let the AI invent SKUs or prices. Validate every AI response
       with Zod **before** it touches the DB. Null prices / low confidence →
       `status='review'`.
-- [ ] All foreman-facing copy in plain German (no "Klasse C"); all procurement
+- [x] All foreman-facing copy in plain German (no "Klasse C"); all procurement
       copy in English. All tunable strings live in `lib/constants/copy.*.ts`.
-- [ ] All AI calls go through the single wrapper in `lib/ai.ts` (timeout
+- [x] All AI calls go through the single wrapper in `lib/ai.ts` (timeout
       + canned fallback). No direct SDK calls from route handlers.
-- [ ] Foreman screens never display per-item `unit_price`. Only the cart total.
-- [ ] A-material blocklist applied at search **and** at ingestion.
-- [ ] Seed must remain idempotent — re-running it must not create duplicates.
+- [x] Foreman screens never display per-item `unit_price`. Only the cart total.
+- [x] A-material blocklist applied at search **and** at ingestion.
+- [x] Seed must remain idempotent — re-running it must not create duplicates.
 
 ---
 
 ## 6. Verification (run after every phase + at the end)
 
-- [ ] `npm run typecheck` clean.
-- [ ] `npm run lint` clean.
-- [ ] `npm run build` succeeds.
+- [x] `npm run typecheck` clean (verified on `dev-a` after Slice B merge).
+- [x] `npm run lint` clean.
+- [x] `npm run build` succeeds (11 routes generated).
 - [ ] Manual exercise of the demo flow in §1 above:
   - [ ] Banner "C-Material erklärt" appears on first foreman visit; dismiss
         sticks across reload.
