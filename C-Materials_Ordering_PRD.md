@@ -3,7 +3,7 @@
 ### A C-materials ordering app for construction foremen, built on comstruct
 
 **Document type:** MVP Product Requirements Document (hackathon scope)
-**Build approach:** Custom Next.js (App Router) + Supabase Cloud, deployed on Vercel. Coded by hand with Claude Code; **Lovable was evaluated and dropped** so we keep real server-side route handlers for AI calls and full control of the stack.
+**Build approach:** Hybrid stack for the comstruct × Lovable track — Next.js (App Router) + Supabase Cloud + OpenAI on Vercel for the secret-bearing backend (AI calls, service-role DB writes, the punchout/PDF ingest pipeline), with a Lovable-built foreman UI surface planned as v2's front of house. Coded by hand with Claude Code where the server boundary matters; Lovable owns the rapid-iteration foreman screens after the hackathon.
 **Status:** Draft for build
 **Last updated:** 21 May 2026
 
@@ -180,7 +180,7 @@ We picked the stack ourselves rather than letting a generator pick it; that cost
 
 **The one architecture rule, written down:** *all* OpenAI API calls and *all* `SUPABASE_SERVICE_ROLE_KEY` usage live under `app/api/**`. The browser only sees the anon key. The wrapper in `lib/ai.ts` is the single chokepoint for AI calls (timeout + canned fallback); no route handler talks to the SDK directly.
 
-**Why this and not Lovable:** Lovable would have given us a faster initial scaffold but no separate server runtime, which forces all AI calls into Supabase Edge Functions (Deno) and adds friction to every iteration. With a custom Next.js project on Vercel we get real Route Handlers, simpler env-var handling, easier debugging, and full control over the seed/migration loop — a fair trade for a few hours of extra setup at the start.
+**Why the hybrid Next.js + Lovable split:** the secret-bearing backend (AI calls, service-role DB writes, the punchout/PDF ingest pipeline) needs a real server boundary that the no-server Lovable generator doesn't offer — so the route handlers, the seed/migration loop, and `lib/ai.ts` live in Next.js where the security story is real. Lovable is the right tool for the rapid-iteration **foreman-facing UI** that follows once the API contract is stable — and that's how v2 should ship. The hackathon demo runs against the Next.js implementation; the Lovable build of the foreman home is the immediate post-demo deliverable. See `plan.md` §10.A2 for the live `lovable.app` link when it's stood up.
 
 ---
 

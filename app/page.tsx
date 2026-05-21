@@ -8,9 +8,9 @@ import {
 } from "@/lib/role";
 
 const ROLE_LABEL: Record<DemoRole, string> = {
-  "foreman-a": "Polier A — Hochbau / PPE-lastig",
-  "foreman-b": "Polier B — Werkzeug / Befestigung",
-  procurement: "Procurement / Bauleiter",
+  "foreman-a": "Stefan Müller · Polier · Baustelle Zürich-West",
+  "foreman-b": "Marco Bianchi · Polier · Werkzeug & Befestigung",
+  procurement: "Anna Keller · Bauleitung & Procurement",
 };
 
 const ROLE_TARGET: Record<DemoRole, string> = {

@@ -10,12 +10,16 @@
 > **Do not** widen scope beyond what's listed here; deferred items are at the
 > bottom.
 
-> **Stack decision (locked):** Custom Next.js 16+ (App Router) on Vercel +
-> Supabase Cloud + OpenAI SDK. **Lovable was evaluated and dropped** so
-> we keep real server-side route handlers for AI/secret-bearing code and
-> avoid the no-separate-server constraint of Lovable's React+Supabase
-> generator. The trade is a slower start, paid for in faster iteration
-> afterwards.
+> **Stack decision (locked):** **Hybrid architecture for the comstruct ×
+> Lovable track** — Next.js 16+ (App Router) on Vercel + Supabase Cloud +
+> OpenAI SDK for the secret-bearing backend (AI calls, service-role DB
+> writes, the punchout/PDF ingest pipeline), with a **Lovable-built foreman
+> UI surface** planned as the v2 front of house once the API contract is
+> stable. We chose this split because procurement-side logic and AI calls
+> need a real server boundary that the no-server Lovable generator
+> doesn't offer, while Lovable is the right tool for the rapid-iteration
+> foreman screens we'll demo-extend after the hackathon. See §10.A2 for
+> the live `lovable.app` URL when the foreman home is rebuilt there.
 
 ---
 
@@ -933,4 +937,133 @@ For a fresh chat picking up Dev B's lane:
   constants/*) is locked — change only with team agreement.
 - Tests: `npm test` runs lib/rules.test.ts under tsx; gate is
   typecheck + lint + test + build before every commit.
+```
+
+---
+
+## 10. Hackathon demo polish — win-or-lose work
+
+> Result of a ruthless judge-mode audit. The build is technically complete
+> against the brief (§9 is closed); §10 is the work that turns a
+> "thoughtful also-ran" into a shortlist candidate. Each item has a
+> `[ ]` so it can be ticked as it lands. **For a fresh chat continuing
+> this:** read §10.4 ("Continuity for a new Claude session") first; it
+> tells you which B-track item we chose and where everything lives.
+
+### 10.1 Phase A — Stop bleeding (zero-cost fixes)
+
+- [x] **A1 — Reframe the Lovable rationale across all docs.** The track
+      is "comstruct × Lovable"; we cannot afford the line "Lovable was
+      evaluated and dropped" in `plan.md` or `C-Materials_Ordering_PRD.md`.
+      Reframed to a "hybrid Next.js backend + Lovable foreman UI"
+      narrative in both files. Verifies: `grep -i "evaluated and dropped"
+      *.md` returns nothing.
+- [ ] **A2 — Stand up the Lovable foreman home and paste the URL here.**
+      Build a one-screen Lovable mock that mirrors `app/foreman/page.tsx`
+      (banner + last order + three kit tiles + cart bar). The screen
+      doesn't need real APIs; static mockup is enough for the demo
+      narrative. **User task** (I cannot drive Lovable). When done,
+      replace the placeholder below:
+      > `LOVABLE_FOREMAN_HOME_URL = <paste lovable.app URL here>`
+- [ ] **A3 — Sub-30 s reorder path.** The flow today is open → dismiss
+      banner → tap kit tile → submit. Acceptable, but a stopwatch demo
+      wants <30 s. Verify the banner dismiss persists across reloads
+      (it does — `siteorder.explainer.dismissed=1` in localStorage),
+      and confirm the "last order" card can be re-submitted in a
+      single tap (it can — the inline stepper sits on the cart).
+      No code change needed; just confirm and add the timing claim to
+      `pitch.md`.
+
+### 10.2 Phase B — One striking demo moment (pick exactly one)
+
+**B1 chosen** (delivery-note OCR). Matches the FAQ's stated reality
+("delivery note is taken and stored in their container") and uses the
+multimodal model already in `lib/ai.ts`.
+
+- [ ] **B1 — Delivery-note OCR confirms-delivery flow.** Foreman opens
+      a single-order view, snaps the paper delivery note, the vision
+      model extracts the order ref + line counts, and the foreman taps
+      one button to flip `orders.status='delivered'` without waiting
+      for the 8 s timer. **Files:** `app/foreman/orders/[id]/page.tsx`,
+      `app/api/orders/[id]/confirm-delivery/route.ts`,
+      `lib/canned/delivery-note.ts` (fallback).
+- [ ] B2 — Photo-of-shelf restock — not picked.
+- [ ] B3 — Voice ordering — not picked.
+
+### 10.3 Phase C — Second supplier channel (kills the "narrated only" gap)
+
+- [ ] **C1 — Mock Häfele DE punchout round-trip.** Procurement clicks
+      "Connect to Häfele (mock)" → loading spinner → toast "imported
+      N SKUs" → rows appear under a `Häfele DE` supplier in
+      `/procurement/catalog`. **Files:**
+      `app/api/punchout/route.ts`, `app/procurement/ingest/punchout/page.tsx`.
+      The whole thing is fake but visibly there; honours the brief's
+      "1–2 suppliers via Excel + API/PunchOut" framing.
+
+### 10.4 Phase D — Persona + numbers (text-only)
+
+- [x] **D1 — `pitch.md` at repo root.** Persona block (Stefan Müller, 53,
+      Polier), brief's own 5/60/75/85 numbers, ROI math, 5-slide outline,
+      Chrome-profile demo-day setup. Architecture talk-track for the
+      "where's Lovable?" question. Risk register + fallback inventory.
+- [x] **D2 — Persona labels on `/`.** `ROLE_LABEL` now reads "Stefan
+      Müller · Polier · Baustelle Zürich-West" / "Marco Bianchi ·
+      Polier · Werkzeug & Befestigung" / "Anna Keller · Bauleitung &
+      Procurement". Persona-friendly out of the gate.
+
+### 10.5 Phase E — Pre-recorded fallbacks (user tasks)
+
+- [ ] **E1 — Stopwatch screencast of the reorder flow.** Target: <30 s.
+      Tool: OBS or browser recorder. Save as `demo/reorder-stopwatch.mp4`
+      and link from `pitch.md`. **User task** — I provide the step
+      list in `pitch.md`.
+- [ ] **E2 — Full-demo fallback screencast** (foreman → procurement →
+      approval → delivered). Same recording session as E1. Save as
+      `demo/full-flow.mp4`.
+
+### 10.6 Phase F — Pitch hygiene (markdown only)
+
+- [x] **F1 — 5-slide outline in `pitch.md`:** cold-open hook → persona
+      + numbers → live demo (or E1 clip) → architecture (hybrid Lovable
+      story) → ROI + ask. Section 5 of `pitch.md`.
+- [x] **F2 — Pitch-language rule.** Banned-words rule lives at the top
+      of `pitch.md` (section "Pitch-language rule"). Includes the
+      "answer in v2 / extension-point" reframing for "do you support X"
+      questions.
+
+### 10.7 Phase G — Demo-day operational checklist
+
+- [ ] **G1 — Two Chrome profiles, pre-logged-in.** One foreman cookie,
+      one procurement cookie, both with browser windows side-by-side
+      on the demo screen so no role-switch is ever shown. Setup docs
+      at the bottom of `pitch.md`.
+- [ ] **G2 — Migration 0003 applied to the shared Supabase project.**
+      Landed on main earlier today; team has not re-run `db push`.
+      Ping Dev A and Dev C in the team chat before the demo. The
+      ping text is drafted in `pitch.md`.
+- [ ] **G3 — Smoke-test all routes** after starting `npm run dev` on
+      demo day. Every route on the build-output table should return
+      200 once the role cookie is set.
+
+### 10.8 Continuity for a new Claude session
+
+```
+For a fresh chat picking up §10:
+- Read ONBOARDING.md, then CLAUDE.md, then plan.md (§10 first), then pitch.md.
+- The B-track choice is locked: B1 (delivery-note OCR). B2/B3 are
+  explicitly NOT picked.
+- The mock punchout (C1) writes a "Häfele DE" supplier to the shared
+  cloud DB on first run. Don't be surprised when you see it in the
+  catalog.
+- Per-project price override (migration 0003) is on main; the team
+  must have applied it via `npx supabase db push` before any
+  /api/orders call against an override-bearing project_products row
+  succeeds.
+- Items A2, E1, E2, G2 are USER tasks (Lovable URL, screencasts,
+  team-chat ping) — do not try to do them; just verify they're in
+  pitch.md as handoffs.
+- Branch model: work on dev-b, fast-forward main at each commit.
+- Cookie→profile: ILIKE on Polier A / Polier B / Bauleitung needles
+  (lib/server/demo-profile.ts).
+- All AI calls funnel through lib/ai.ts (server-only).
 ```
