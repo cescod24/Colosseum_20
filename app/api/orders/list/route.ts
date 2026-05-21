@@ -18,7 +18,13 @@ type RawOrder = {
   total: number | string;
   currency: string;
   created_at: string;
-  order_items: Array<{ qty: number | string; product_id: string }> | null;
+  order_items: Array<{
+    qty: number | string;
+    product_id: string;
+    line_status?: string | null;
+    decline_reason?: string | null;
+    suggested_product_id?: string | null;
+  }> | null;
 };
 
 export async function GET() {
@@ -36,39 +42,49 @@ export async function GET() {
   }
 
   const supabase = getServerClient();
+  const richSelect =
+    "id, status, total, currency, created_at, order_items (qty, product_id, line_status, decline_reason, suggested_product_id)";
+  const legacySelect =
+    "id, status, total, currency, created_at, order_items (qty, product_id)";
 
-  let query = supabase
-    .from("orders")
-    .select(
-      "id, status, total, currency, created_at, order_items (qty, product_id)",
-    )
-    .order("created_at", { ascending: false })
-    .limit(MAX_ROWS);
+  const runQuery = (select: string) => {
+    let q = supabase
+      .from("orders")
+      .select(select)
+      .order("created_at", { ascending: false })
+      .limit(MAX_ROWS);
+    if (profile.role === "foreman") {
+      q = q.eq("created_by", profile.id);
+    } else if (profile.project_id) {
+      q = q.eq("project_id", profile.project_id);
+    }
+    return q;
+  };
 
-  if (profile.role === "foreman") {
-    query = query.eq("created_by", profile.id);
-  } else if (profile.project_id) {
-    query = query.eq("project_id", profile.project_id);
-  }
-
-  const { data, error } = await query;
-
+  let { data, error } = await runQuery(richSelect);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    ({ data, error } = await runQuery(legacySelect));
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
-  const orders = (data ?? []).map((raw) => {
-    const r = raw as RawOrder;
+  const orders = ((data ?? []) as unknown as RawOrder[]).map((raw) => {
+    const r = raw;
+    const items = (r.order_items ?? []).map((it) => ({
+      qty: Number(it.qty),
+      product_id: it.product_id,
+      line_status: (it.line_status ?? null) as "approved" | "rejected" | null,
+      decline_reason: it.decline_reason ?? null,
+      suggested_product_id: it.suggested_product_id ?? null,
+    }));
     return {
       id: r.id,
       status: r.status,
       total: Number(r.total),
       currency: r.currency,
       created_at: r.created_at,
-      items: (r.order_items ?? []).map((it) => ({
-        qty: Number(it.qty),
-        product_id: it.product_id,
-      })),
+      items,
     };
   });
 

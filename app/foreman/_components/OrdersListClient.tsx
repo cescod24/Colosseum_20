@@ -2,12 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock, RotateCcw, X } from "lucide-react";
 
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 import { getBrowserClient } from "@/lib/supabase/browser";
 
 import { StatusPill, type OrderStatus } from "./StatusPill";
+
+type OrderLineSummary = {
+  qty: number;
+  product_id: string;
+  line_status?: "approved" | "rejected" | null;
+  decline_reason?: string | null;
+  suggested_product_id?: string | null;
+};
 
 type OrderSummary = {
   id: string;
@@ -15,7 +23,7 @@ type OrderSummary = {
   total: number;
   currency: string;
   created_at: string;
-  items: Array<{ qty: number; product_id: string }>;
+  items: OrderLineSummary[];
 };
 
 type Props = {
@@ -264,19 +272,34 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
         <ul className="space-y-2">
           {shown.map((o) => {
             const isDismissed = dismissed.has(o.id);
+            const declined = o.items.filter(
+              (it) => it.line_status === "rejected",
+            ).length;
+            const hasSuggestion = o.items.some(
+              (it) =>
+                it.line_status === "rejected" && it.suggested_product_id,
+            );
             return (
               <li
                 key={o.id}
-                className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm"
+                className="relative rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors hover:border-zinc-300"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <Link
-                    href={`/foreman/orders/${o.id}`}
-                    className="text-sm font-semibold text-zinc-900 hover:text-zinc-600"
-                  >
-                    #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
-                  </Link>
-                  <div className="flex items-center gap-2">
+                <Link
+                  href={`/foreman/orders/${o.id}`}
+                  className="block space-y-2 p-3 pr-9"
+                  aria-label={`${copyDe["order_detail.title"]} #${shortId(o.id)}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-semibold text-zinc-900">
+                        #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        {formatCopy(copyDe["orders.items"], {
+                          count: o.items.length,
+                        })}
+                      </p>
+                    </div>
                     <p className="text-[11px] text-zinc-500">
                       {new Date(o.created_at).toLocaleString("de-CH", {
                         day: "2-digit",
@@ -285,35 +308,51 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
                         minute: "2-digit",
                       })}
                     </p>
-                    {view === "active" ? (
-                      <button
-                        type="button"
-                        onClick={() => dismiss(o.id)}
-                        aria-label="Ausblenden"
-                        title="Ausblenden"
-                        className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    ) : isDismissed ? (
-                      <button
-                        type="button"
-                        onClick={() => restore(o.id)}
-                        aria-label="Wieder anzeigen"
-                        title="Wieder anzeigen"
-                        className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
                   </div>
-                </div>
-                <StatusPill status={o.status} />
-                {o.status === "pending" && (
-                  <p className="flex items-center gap-1 text-[11px] text-amber-700">
-                    <Clock className="h-3 w-3" /> {copyDe["orders.waiting"]}
-                  </p>
-                )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill status={o.status} />
+                    {declined > 0 && (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                        {formatCopy(copyDe["orders.lines_declined"], {
+                          declined,
+                          total: o.items.length,
+                        })}
+                      </span>
+                    )}
+                    {hasSuggestion && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        {copyDe["orders.has_suggestion"]}
+                      </span>
+                    )}
+                  </div>
+                  {o.status === "pending" && (
+                    <p className="flex items-center gap-1 text-[11px] text-amber-700">
+                      <Clock className="h-3 w-3" /> {copyDe["orders.waiting"]}
+                    </p>
+                  )}
+                </Link>
+                <ChevronRight className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-zinc-300" />
+                {view === "active" ? (
+                  <button
+                    type="button"
+                    onClick={() => dismiss(o.id)}
+                    aria-label="Ausblenden"
+                    title="Ausblenden"
+                    className="absolute bottom-2 right-2 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : isDismissed ? (
+                  <button
+                    type="button"
+                    onClick={() => restore(o.id)}
+                    aria-label="Wieder anzeigen"
+                    title="Wieder anzeigen"
+                    className="absolute bottom-2 right-2 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
               </li>
             );
           })}

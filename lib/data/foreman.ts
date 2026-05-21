@@ -206,17 +206,32 @@ export async function loadMostOrderedForProject(
 
 export async function loadForemanOrders(profileId: string) {
   const supabase = getServerClient();
-  const { data, error } = await supabase
+  // Try the migration-0004 columns first; PostgREST returns an error if the
+  // columns don't exist yet, in which case we fall back to the legacy select.
+  const richSelect =
+    "id, status, total, currency, created_at, items:order_items(qty, product_id, line_status, decline_reason, suggested_product_id)";
+  const legacySelect =
+    "id, status, total, currency, created_at, items:order_items(qty, product_id)";
+
+  const rich = await supabase
     .from("orders")
-    .select(
-      "id, status, total, currency, created_at, items:order_items(qty, product_id)",
-    )
+    .select(richSelect)
     .eq("created_by", profileId)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (error) {
-    console.error("[foreman.loadForemanOrders]", error);
+
+  if (!rich.error) return rich.data ?? [];
+
+  const fallback = await supabase
+    .from("orders")
+    .select(legacySelect)
+    .eq("created_by", profileId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (fallback.error) {
+    console.error("[foreman.loadForemanOrders]", fallback.error);
     return [];
   }
-  return data ?? [];
+  return fallback.data ?? [];
 }
