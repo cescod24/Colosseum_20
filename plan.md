@@ -1131,3 +1131,116 @@ For a fresh chat picking up §10:
   (lib/server/demo-profile.ts).
 - All AI calls funnel through lib/ai.ts (server-only).
 ```
+
+---
+
+## 11. Demo polish v2 — judge critique #2 (post-§10 polish)
+
+> Second pass with the ruthless-judge hat on, after §10 polish
+> shipped. §10 stays as the round-1 record; §11 is round 2.
+> **B1 (delivery-note OCR) AND B3 (voice ordering) ship together** —
+> they're complementary demo beats on different screens, not
+> competing options. Approving §11 = approving the v2 critique
+> reading + the new checkboxes below.
+
+### 11.1 Status check on §10 (cross-reference, do not re-tick)
+
+| §10 item | Status |
+|---|---|
+| A1, B1, C1, D1, D2, F1, F2 | Shipped in code last session — see §10 for ticked detail. |
+| A2 (Lovable URL), A3 (stopwatch verify), E1, E2 (screencasts), G1, G2, G3 (demo-day ops) | Still open — user tasks. |
+| B2 (photo-of-shelf), B3 (voice) | B2 not picked; B3 **moved from "alternative" to "ship alongside B1" in §11.B below.** |
+
+### 11.2 Tier 1 — must do to move the needle
+
+- [ ] **11.A — Lovable foreman-home mock** *(same as §10.A2; still
+      open; user task)*. Even a 3-screen static Lovable mock with
+      screenshots of the real foreman home converts the
+      architecture-slide conversation from "trust us" to "here it
+      is." Paste the URL into `pitch.md` §6 and `plan.md` §10.A2
+      when done.
+- [ ] **11.B — Voice ordering on `/foreman/discover` (B3 add-on,
+      Dev B lane).** `app/foreman/_components/VoiceSearch.tsx` is an
+      additive client component that uses the browser's
+      `SpeechRecognition` (lang `de-CH`), pipes the transcript into
+      the existing search input, and triggers the existing
+      `/api/discover` POST. **Feature-detects** so the button hides
+      on Firefox / unsupported browsers. Pairs with B1's OCR as the
+      second on-stage wow moment ("ich brauch 50 Schrauben und
+      Handschuhe" → cards in 8 s). Backend unchanged.
+- [ ] **11.C — Re-seed the shared cloud DB** *(user task)*. Smoke
+      tests at the end of the §10 session confirmed `orders` is
+      empty after `npm run seed:clean` (commit `cdf8d07`). Before
+      the demo slot, coordinate in team chat and run `npm run seed`
+      (full version) to re-populate the ~20 fixture orders. Without
+      this, both the queue and the OCR demo beat fall flat.
+
+### 11.3 Tier 2 — high ROI if time
+
+- [ ] **11.D — Real 5-slide deck file** *(user task)*. The §5 outline
+      in `pitch.md` is solid prep; the actual slides don't exist
+      yet. Google Slides / Keynote / Pitch.com. Cold-open hook =
+      photo of crumpled paper delivery notes (from the brief FAQ).
+- [ ] **11.E — Compliance alert on `/procurement/dashboard`
+      (Dev B lane).** Hardcoded amber card at top of the dashboard
+      ("3 Bestellungen ohne Rahmenvertrag diesen Monat — prüfen →").
+      Moves Anna Keller from "data is shown" to "decisions are
+      surfaced." The pitch will openly call it a mock; the live
+      framework-compliance gate would join `approval_rules` against
+      a supplier-framework table.
+- [ ] **11.F — Stopwatch screencast (E1) recorded against a
+      *populated* DB** *(user task)*. Target: sub-30 s reorder.
+      Tool: OBS. Save as `demo/reorder-stopwatch.mp4`. Without
+      this, the "obviously easier than a phone call" claim has no
+      proof.
+
+### 11.4 Tier 3 — pre-empt the killer questions
+
+- [ ] **11.G — Scale-honesty slide** *(user task; I can draft
+      markdown)*. Slide 4.5 or appendix in the deck: "what about
+      50k SKUs?" → pgvector + per-trade narrowing + procurement
+      curation. Pre-empts the "your prompt sends the whole catalog
+      to OpenAI" question that scrapes 9/10 procurement-ML pitches.
+- [ ] **11.H — Refresh canned delivery-note timestamp (Dev B
+      lane).** `lib/canned/delivery-note.ts` currently has
+      `delivery_date: "2026-05-21"`. Bump to today's demo date so
+      a judge scrutinising the fallback doesn't spot the
+      discrepancy.
+
+### 11.5 Explicit non-goals (do NOT re-propose these)
+
+- Real punchout (Häfele/Würth developer portal) — mock is enough
+  for the demo; building it would burn 4+ hours for zero pitch
+  uplift.
+- Per-project price override UI in the live demo — the schema and
+  API are live (migration 0003, `/api/orders` resolves overrides),
+  but surfacing it on stage risks confusion.
+- Good / better / best variants — out of scope.
+- `lib/rules.ts` or `lib/schema.ts` edits — locked surfaces.
+- Re-seeding the catalog mid-session — `seed:clean` was shipped
+  for a reason; treat it as the team's chosen state.
+
+### 11.6 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §11:
+- Read §10 first (history), then §11 (current workbook).
+- B1 (OCR) AND B3 (voice) ship together — both live in the build.
+  Voice on /foreman/discover replaces typing/scrolling; OCR on
+  /foreman/orders/[id] replaces waiting/manual-confirm. Do not
+  drop either at demo time.
+- Items 11.A, 11.C, 11.D, 11.F are user tasks (Lovable URL, seed,
+  slide deck, screencast). Item 11.G is user-drafted from a
+  markdown stub I can write. Items 11.B, 11.E, 11.H are Dev B
+  code work shipped or queued in this session.
+- VoiceSearch client component lives at
+  app/foreman/_components/VoiceSearch.tsx — feature-detects on
+  window.SpeechRecognition / window.webkitSpeechRecognition,
+  hides on unsupported browsers (Firefox).
+- The compliance alert on /procurement/dashboard is a hardcoded
+  mock; the pitch should call it that. Live framework-compliance
+  would join approval_rules to a supplier-framework table.
+- Cookie→profile: still ILIKE on Polier A / Polier B / Bauleitung
+  needles (lib/server/demo-profile.ts).
+- Branch model: work on dev-b, fast-forward main at each commit.
+```
