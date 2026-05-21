@@ -4,47 +4,67 @@
 > this, read `CLAUDE.md`, then `plan.md`, then `C-Materials_Ordering_PRD.md`
 > as needed.
 
-## Current state (updated 2026-05-21) — READ THIS FIRST
+## Current state (updated 2026-05-22) — READ THIS FIRST
 
-We are **past Step 0**. What has landed on `main`:
+**The build is feature-complete against the brief.** All three slices are
+merged to `main`; the original Phases 0–9 are done and the demo-polish work
+(plan.md §10) is mostly in. Health is green: `npm run typecheck`,
+`npm run lint`, `npm run build`, and `npm test` (9/9, rules engine) all pass.
 
-- **Step 0** (scaffold + schema + locked `lib/` surfaces).
-- **Slice C** (data + AI): the seed, `/api/ingest`, `/api/discover`, the
-  procurement ingest review screen, and a `/procurement/discover-test` dev
-  tool.
-- **AI provider is OpenAI**, not Anthropic. Wrapper is `lib/ai.ts`; env vars
-  are `OPENAI_API_KEY` + `OPENAI_MODEL` (default `gpt-4o-mini`). The switch
-  happened because the team has an OpenAI key.
+**What's on `main` and working end-to-end:**
 
-**Infrastructure is live:**
+- **Foreman:** home (banner + last order + 3 kit tiles + most-ordered + cart,
+  offline queue), task discovery (`/foreman/discover` + A-material redirect),
+  status list with Aktuell/Verlauf split + per-order hide
+  (`/foreman/orders`), order detail with **delivery-note OCR**
+  (`/foreman/orders/[id]` → camera → `gpt-4o-mini` vision → flips to
+  Delivered), and the `/foreman/info` explainer.
+- **Procurement:** approval queue (`/procurement/queue`, approve/reject →
+  mock comstruct handoff → 8 s delivered flip), project rules
+  (`/procurement/project`), catalog admin (`/procurement/catalog`), CSV/PDF
+  ingest (`/procurement/ingest`), mock **Häfele punchout**
+  (`/procurement/ingest/punchout`), and the **spend dashboard + decision
+  recap** (`/procurement/dashboard`, live-refreshing).
+- **AI = OpenAI** (`lib/ai.ts`, `gpt-4o-mini`; `OPENAI_API_KEY` +
+  `OPENAI_MODEL`). All AI + service-role writes are server-only. Every AI
+  call has a canned fallback so a missing/slow key never breaks the demo.
+- **Live updates:** Supabase Realtime + 3 s polling on the foreman orders
+  list; `RefreshPoller` (3 s) on the foreman home + procurement queue +
+  dashboard. The cart self-heals against DB re-seeds (stale product_ids are
+  pruned).
 
-- Supabase Cloud project is up, `0001_init.sql` is **already applied**, and
-  `npm run seed` has **already been run** against it (99 products, 33
-  suppliers, 3 profiles, 3 kits, 20 orders). The DB is **shared** — you do
-  **not** need to re-apply the migration or re-run the seed. Re-running
-  `npm run seed` wipes and reseeds the shared data, so only do it if you
-  intend to reset it (e.g. before a clean demo).
-- The 5 env values have been **shared in the team chat** (private). They are
-  never committed. To work locally: `cp .env.example .env.local` and paste
-  the values from chat.
+**Infrastructure:**
 
-**What works end-to-end right now** (with the real OpenAI key + seeded DB):
+- Supabase Cloud project `mxftvxbjsumqygtmmztq` is up. **Migrations
+  0001 + 0002 + 0003 are all applied** (verified 2026-05-22). Don't re-apply.
+- **Seed has two modes** (both wipe & reseed the *shared* DB — coordinate in
+  team chat first):
+  - `npm run seed` — full demo dataset (catalog + ~20 historical orders).
+  - `npm run seed:clean` — catalog + kits, **zero orders** (empty slate).
+  - The DB was last left **clean-seeded** (0 orders). Run `npm run seed` if
+    you want the lived-in demo history back.
+- The 5 env values are **shared in the team chat** (never committed).
+  `cp .env.example .env.local` and paste them.
 
-- Ingestion: upload a CSV or contract PDF at `/procurement/ingest` → real
-  OpenAI extraction → rows persist to `products` with the review/active
-  split.
-- Discovery: `/api/discover` (and the `/procurement/discover-test` page) →
-  real catalog → real OpenAI ranking → A-material redirect on blocked terms.
+**Known gaps / what's still missing:**
 
-**What's still missing for the full demo:**
+- **Ingest "Bestätigen & aktivieren" doesn't persist.** Review-flagged rows
+  (null price / missing unit / low confidence) are extracted and saved with
+  `status='review'`, but the activate button is a visual toggle only — there
+  is no endpoint to flip `review → active`, so flagged rows never reach the
+  live catalog. Tracked in plan.md §9.3.5. (Workaround for the demo: upload
+  the **clean** ACME PDF, whose rows land `active` directly.)
+- **No Vercel deployment** — runs locally via `npm run dev` (the demo is
+  localhost, two browser profiles; see pitch.md §G1).
+- **8 s delivered auto-flip is dev-only** — it's a `setTimeout` in
+  `lib/server/orders.ts` that won't survive a serverless deploy. The OCR
+  confirm-delivery path flips to Delivered without the timer, so the demo
+  doesn't depend on it.
+- **User tasks** (tracked, not code): Lovable foreman-home URL (§10 A2),
+  stopwatch + full-flow screencasts (§10 E1/E2).
 
-- **Foreman UI** (slice A — Phases 2/3): exists on the `dev-a` branch, **not
-  yet merged** to `main`.
-- **Procurement approval queue** (slice B — Phases 4/5): `dev-b` branch is
-  empty / not built.
-- No Vercel deployment yet — everything runs locally via `npm run dev`.
-
-Everything below describes how we got here and the team workflow.
+For the full open-item checklist, read plan.md **§9.3** (brief-coverage open
+items) and **§10** (demo polish). Everything below is how we got here.
 
 ## What "Step 0" got us
 

@@ -196,6 +196,10 @@ calls into.")
 
 ### G2 — Migration 0003 chat ping (paste in team channel)
 
+> ✅ **DONE (verified 2026-05-22):** 0003 is applied on the shared DB —
+> `project_products.unit_price` exists. No need to send this ping anymore;
+> kept for the record.
+
 > Heads-up: I just merged `feat(orders): per-project price
 > override on project_products` to main (commit `498e05e`). It
 > adds an additive migration `0003_project_product_price.sql`.
@@ -241,7 +245,7 @@ zero live API risk.
 |---|---|---|
 | WiFi flaky at venue | Medium | E1 + E2 screencasts. |
 | OpenAI slow / rate-limited | Medium | `lib/ai.ts` falls back to canned for both discovery and OCR. Demo-watcher won't notice. |
-| Migration 0003 not applied yet | Medium | `/api/orders` falls back to catalog price; nothing breaks. Don't trigger an override during demo unless G2 is confirmed done. |
+| Migration 0003 not applied | Resolved | Applied + verified on the shared DB 2026-05-22; the override feature is safe to demo. |
 | Realtime drops during the pill flip | Low | 3 s polling fallback already in place. |
 | Shared DB state shifts mid-demo (another dev seeds) | Low-Medium | Lock the demo slot in team chat 30 min ahead. |
 | Judge asks "where's Lovable?" before slide 4 | Medium | Answer with the slide-4 talk-track above. **Never apologise.** |

@@ -676,13 +676,17 @@ them:
 
 ## 8. Phase progress log (append to as you go)
 
-- _Infra / env —_ **live as of 2026-05-21.** Supabase Cloud project
-  `mxftvxbjsumqygtmmztq` is up; `0001_init.sql` applied via the dashboard SQL
-  editor; `npm run seed` has been run against it (idempotent, verified twice).
-  **AI provider is OpenAI** (`gpt-4o-mini`, `OPENAI_API_KEY` + `OPENAI_MODEL`)
-  — switched from Anthropic because the team has an OpenAI key. The 5 env
-  values live in the team chat (shared privately), never in the repo. No
-  Vercel project yet — everything runs locally via `npm run dev`.
+- _Infra / env —_ **live as of 2026-05-22.** Supabase Cloud project
+  `mxftvxbjsumqygtmmztq` is up; **migrations 0001 + 0002 + 0003 all applied
+  and verified** against the live DB. **AI provider is OpenAI**
+  (`gpt-4o-mini`, `OPENAI_API_KEY` + `OPENAI_MODEL`) — switched from Anthropic
+  because the team has an OpenAI key. The 5 env values live in the team chat
+  (shared privately), never in the repo. **Seed has two modes:** `npm run
+  seed` (full demo, ~20 historical orders) and `npm run seed:clean` (catalog
+  + kits, zero orders); both wipe the shared DB, so coordinate first. DB was
+  last left clean-seeded (0 orders). **No Vercel project yet** — everything
+  runs locally via `npm run dev` (demo is localhost, two browser profiles).
+  Health green: typecheck + lint + build + `npm test` (9/9) all pass.
 - _Phase 0 —_ **done** (Step 0 commit, on `main`). Next.js 16 + TS + Tailwind
   v4 + shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher
   landing at `/`; `data/sample.csv` and
@@ -738,7 +742,17 @@ them:
   (`canned:false`). The foreman-facing UI is slice A.
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ **done** (Dev B lane). `app/foreman/info/page.tsx` + `HelpCircle` "?" icon link in the foreman home header; reuses `categories.ts` for the icons and `copy.de.ts` for all strings (new `info.*` + `nav.info` keys).
 - _Phase 9 (stretch — spend dashboard) —_ **done** (Dev B lane). `app/procurement/dashboard/{page.tsx,DashboardCharts.tsx}` with two Recharts bars (supplier top-8, product_group) + a top-foremen table. Server component does the SQL join + JS reduction; client island renders the bars. New `dashboard.*` keys in `copy.en.ts`; nav link added to `app/procurement/layout.tsx`.
-- _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
+- _Phase 10 (procurement kit editor) —_ (intentionally cut; seeded kits done
+  in Phase 2). **NB:** the "§10" *section* further down is a different thing —
+  it's the demo-polish track, mostly **done**.
+- _Demo polish (§10 section) —_ **mostly done.** Delivery-note OCR confirm
+  (`/foreman/orders/[id]` + `/api/orders/[id]/confirm-delivery`, B1), mock
+  Häfele punchout (`/procurement/ingest/punchout` + `/api/punchout`, C1),
+  catalog admin + `PATCH /api/products/[id]` (9.3.3), per-project price
+  override (migration 0003 + `/api/orders` fallback, 9.3.4), spend dashboard +
+  decision recap (9.3.1), real persona labels on `/`, and `pitch.md`. Still
+  **open**: review→active activation (§9.3.5, see below), Lovable URL (A2),
+  screencasts (E1/E2), demo-day ops (G1/G3).
 
 ---
 
@@ -773,10 +787,14 @@ them:
 | Punchout / IDS live integration | Cut by design | §2: narrated, no UI |
 | Two-tier approval (PM vs central procurement) | Cut by design | §2: collapsed to one role |
 | Procurement-side kit editor | Cut by design | Phase 10 §7 |
-| `/info` formal C-material explainer route | **Open** | §9.3 item below |
-| Spend dashboard (per supplier / group / foreman) | **Open** | §9.3 item below |
-| Catalog admin UI (rename / re-group activated rows) | **Open** | §9.3 item below |
-| Per-project price override | **Open (risky)** | §9.3 item below |
+| `/info` formal C-material explainer route | Built | `app/foreman/info/page.tsx` (§9.3.2) |
+| Spend dashboard (per supplier / group / foreman) | Built | `app/procurement/dashboard` (§9.3.1) |
+| Decision recap (accepted / rejected history) | Built | dashboard recap table |
+| Catalog admin UI (rename / re-group / re-price) | Built | `app/procurement/catalog` + `PATCH /api/products/[id]` (§9.3.3) |
+| Per-project price override | Built | migration 0003 + `/api/orders` fallback (§9.3.4) |
+| Delivery-note OCR confirm-delivery | Built | `/foreman/orders/[id]` + `/api/orders/[id]/confirm-delivery` (§10 B1) |
+| Mock punchout (2nd supplier channel) | Built | `/procurement/ingest/punchout` + `/api/punchout` (§10 C1) |
+| **Activate ingested `review` rows into the catalog** | **Open** | §9.3.5 below — the activate button is a no-op |
 
 ### 9.2 Items deliberately cut (do NOT re-propose these)
 
@@ -939,6 +957,40 @@ For a fresh chat picking up Dev B's lane:
   typecheck + lint + test + build before every commit.
 ```
 
+#### `[ ]` 9.3.5 Activate ingested `review` rows into the catalog (any lane)
+
+**Brief requirement:** "procurement reviews flagged rows → catalog goes
+live." This is the one ingest step that is **not actually wired**, found in
+the 2026-05-22 status audit.
+
+**Current gap:** the ingest review screen's "Bestätigen & aktivieren" button
+(`app/procurement/ingest/page.tsx`, `activateRow`) only adds the sku to a
+local `Set` — it never persists. `PATCH /api/products/[id]` accepts
+`{ name, product_group, unit_price }` but **not** `status`, and
+`/procurement/catalog` lists only `status='active'`. So a row saved as
+`status='review'` (null price / missing unit / confidence < 0.7) can never
+become orderable.
+
+**Implementation (small):**
+1. `lib/schema.ts` — add `status: z.enum(["active","review"]).optional()` to
+   `productPatchInputSchema` (keep the non-empty `.refine`).
+2. `app/api/products/[id]/route.ts` — it already forwards `parsed.data` to
+   `.update()`, so allowing `status` is enough; add `status` to the
+   `.select()`.
+3. `app/api/ingest/route.ts` — include each persisted product's `id` in the
+   response rows (today they carry only `supplier_sku`), so the client can
+   PATCH by id.
+4. `app/procurement/ingest/page.tsx` — make `activateRow` call
+   `PATCH /api/products/<id>` with `{ status: "active" }` and move the row
+   out of the review bucket on success.
+5. (Optional) surface `review` rows in `/procurement/catalog` with an inline
+   Activate button so activation also works outside the upload session.
+
+**Verify:** upload `data/sample-contract-messy.pdf` → 2 review rows →
+activate each → they show in `/procurement/catalog` and a foreman can order
+them. **Demo workaround until then:** upload the *clean* ACME PDF — its rows
+land `active` directly and need no activation.
+
 ---
 
 ## 10. Hackathon demo polish — win-or-lose work
@@ -1049,10 +1101,10 @@ multimodal model already in `lib/ai.ts`.
       one procurement cookie, both with browser windows side-by-side
       on the demo screen so no role-switch is ever shown. Setup docs
       at the bottom of `pitch.md`.
-- [ ] **G2 — Migration 0003 applied to the shared Supabase project.**
-      Landed on main earlier today; team has not re-run `db push`.
-      Ping Dev A and Dev C in the team chat before the demo. The
-      ping text is drafted in `pitch.md`.
+- [x] **G2 — Migration 0003 applied to the shared Supabase project.**
+      Verified 2026-05-22: `project_products.unit_price` exists on the live
+      DB (REST probe returns 200). All three migrations (0001/0002/0003) are
+      applied. No further action needed.
 - [ ] **G3 — Smoke-test all routes** after starting `npm run dev` on
       demo day. Every route on the build-output table should return
       200 once the role cookie is set.
