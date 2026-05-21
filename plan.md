@@ -22,15 +22,22 @@ slice over breadth.
 Demo flow (Definition of Done):
 1. Procurement uploads `data/sample.csv` + the messy contract PDF → reviews
    2 flagged rows → activates → threshold confirmed at 200 CHF.
-2. Foreman reorders last order (~40 CHF) → **auto-approved → Ordered → Delivered**
+2. Foreman opens app → sees the "C-Material erklärt" banner once, dismisses it
+   → sees three pre-seeded **Sets** as one-tap tiles ("PPE-Set neuer
+   Mitarbeiter", "Trockenbau-Set 50 m²", "Werkzeug-Grundausstattung") in
+   addition to "Dein letzter Auftrag" and "Am meisten bestellt".
+3. Foreman reorders last order (~40 CHF) → **auto-approved → Ordered → Delivered**
    in ~20 s.
-3. Foreman searches *"Fenster abdichten"* → silicone + cleaner + tape (each with
-   a one-line reason) → larger qty → total ~310 CHF → **Pending**.
-4. Procurement approves → foreman's pill flips **Approved → Ordered** live →
+4. Foreman taps the "Trockenbau-Set" tile → cart pre-fills with the kit's
+   items at default quantities → tweaks one line with the +/- stepper →
+   submits.
+5. Foreman searches *"Fenster abdichten"* → silicone + cleaner + tape (each
+   with a one-line reason) → larger qty → total ~310 CHF → **Pending**.
+6. Procurement approves → foreman's pill flips **Approved → Ordered** live →
    a comstruct-shaped row lands in `mock_comstruct_orders` → ~8 s later
    **Delivered**.
-5. Foreman searches *"Beton"* → friendly redirect, no API call.
-6. (Stretch.) Procurement dashboard shows supplier + product-group spend +
+7. Foreman searches *"Beton"* → friendly redirect, no API call.
+8. (Stretch.) Procurement dashboard shows supplier + product-group spend +
    foreman ranking.
 
 ---
@@ -94,8 +101,33 @@ Demo flow (Definition of Done):
       - `sample-contract-clean.pdf` — clean 6–8 row table in CHF.
       - `sample-contract-messy.pdf` — 2+ ambiguous rows ("auf Anfrage", a price
         range, a missing unit, a merged line) to exercise the review state.
-- [x] **Scope target:** SPEC Phases 0–7 are the target (covers all four judging
-      criteria + AI wow). 0–6 is the floor. 8–10 are stretch in that order.
+- [x] **Material-set kits (minimal):** Three kits are pre-seeded in the DB
+      ("PPE-Set neuer Mitarbeiter", "Trockenbau-Set 50 m²",
+      "Werkzeug-Grundausstattung") and shown as one-tap tiles on the foreman
+      home, alongside "Dein letzter Auftrag" and "Am meisten bestellt". Tapping
+      a tile loads the kit's items + default quantities into the cart; the
+      foreman tweaks with steppers/chips and submits like any other order.
+      **The procurement-side kit editor (UI to define new kits) remains cut** —
+      the schema (`material_sets`, `material_set_items`) is in place so the
+      claim is real.
+- [x] **C-materials explainer is core, not stretch:** A dismissible
+      "C-Material erklärt" banner sits at the top of the foreman home from
+      Phase 2 onwards (German plain-language, no jargon). Dismiss state
+      persists in localStorage. This satisfies the brief's "Explain
+      C-materials clearly in the product" deliverable.
+- [x] **Single combined approver role:** The brief distinguishes Project
+      Manager approval (project budget) from Central Procurement approval
+      (framework compliance); the MVP collapses both into one procurement
+      role. The schema is generic enough to add a second approver type later;
+      called out explicitly in the pitch as a deliberate hackathon collapse.
+- [x] **Punchout / IDS second supplier channel:** Not built; narrated in the
+      pitch as the second supplier ingestion channel alongside CSV/PDF. No
+      mock endpoint, no UI surface — pure verbal acknowledgement so the brief's
+      "1–2 suppliers via Excel + API/PunchOut" framing is honoured.
+- [x] **Scope target:** SPEC Phases 0–7 + the kit tiles (in Phase 2) + the
+      explainer banner (in Phase 2) are the **floor**. Phase 8 (formal
+      explainer route) and Phase 9 (dashboard) are stretch in that order.
+      Phase 10 (procurement-side kit editor) stays cut.
 
 ---
 
@@ -202,17 +234,39 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
         skewed by trade. Most-recent order per foreman has 3–4 line items.
   - [ ] **One** sub-threshold hazardous order (e.g. ~50 CHF including a marking
         spray) so the group rule has a fixture.
+  - [ ] Insert **three `material_sets`** for the project + their
+        `material_set_items` rows:
+        - "PPE-Set neuer Mitarbeiter" (Helm + Gehörschutz + Handschuhe +
+          Warnweste + Schutzbrille).
+        - "Trockenbau-Set 50 m²" (Schrauben TX25, Dübel, Profile-bezogene
+          Kleinteile, Spachtelmasse, Klebeband — choose 5–6 catalog items).
+        - "Werkzeug-Grundausstattung" (Cutter, Maßband, Bleistifte, Bits, …
+          5–6 catalog items).
+        Each `material_set_items` row carries a sensible `default_qty`.
 - **Checkpoint:** `npm run seed` runs twice without duplicates; rows visible in
-  Supabase dashboard.
+  Supabase dashboard; the three kits and their items are present.
 
-### Phase 2 — Foreman reorder flow (F1, weight 18)  `[ ]`
-- [ ] `(foreman)/page.tsx` reads role cookie → fetches:
-  - [ ] "Dein letzter Auftrag" (most recent order + line items).
-  - [ ] "Am meisten bestellt auf dieser Baustelle" — SQL aggregate
+### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
+- [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
+  - [ ] **"C-Material erklärt" banner** (German, plain-language; e.g.
+        *"Hier bestellst du Kleinmaterial für die Baustelle — Schrauben,
+        Handschuhe, Klebeband, Spraydosen. Beton, Stahl, Bewehrung & Schalung
+        gehen über deinen Bauleiter."*). Dismissible; dismiss state stored in
+        localStorage under `siteorder.explainer.dismissed=1`.
+  - [ ] **"Dein letzter Auftrag"** — most recent order + line items, with
+        the +/- stepper inline so it's literally one tap to resubmit.
+  - [ ] **"Sets"** row — three tiles from `material_sets` for the current
+        project, rendered as large tappable cards (kit name + item count +
+        an icon). Tapping a tile pre-fills the cart with that kit's
+        `material_set_items` at `default_qty`. Foreman can then tweak with
+        steppers/chips before submitting.
+  - [ ] **"Am meisten bestellt auf dieser Baustelle"** — SQL aggregate
         `SUM(qty) GROUP BY product` over the project, top 5.
 - [ ] Components:
   - [ ] `Stepper` (≥ 44 px tap targets, no modal).
   - [ ] `ChipRow` reading unit → chip set from `lib/constants/chips.ts`.
+  - [ ] `KitTile` — name, item count, icon, tap → load kit into cart.
+  - [ ] `ExplainerBanner` — dismissible, localStorage-backed.
   - [ ] `CartBar` fixed at bottom, shows running total in CHF + "Bestellung
         senden · X CHF" button.
 - [ ] **No `unit_price` shown** on line rows. Cart total computed client-side
@@ -220,7 +274,9 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - [ ] Cart persisted in `localStorage`; if `!navigator.onLine`, queue the
       submit + show the "wird gesendet…" badge; flush queue on `online` event.
 - [ ] Submit → POST `/api/orders` → on success redirect to `/orders`.
-- **Checkpoint:** can build + submit a reorder in well under a minute.
+- **Checkpoint:** can build + submit a reorder in well under a minute; the
+  banner appears once and stays dismissed; tapping any kit tile populates the
+  cart with the kit's items at their default quantities.
 
 ### Phase 3 — Order state machine + status view (F2, weight 15)  `[ ]`
 - [ ] `(foreman)/orders/page.tsx`: each order as a horizontal pill
@@ -308,13 +364,19 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - **Checkpoint:** rehearsed prompts return sensible short lists; A-material
   search hits the redirect, no API call.
 
-### Phase 8 — A-material explainer + misuse prevention (F7, weight 8) — stretch  `[ ]`
-- [ ] One-screen onboarding banner on foreman home (German):
-      *"Hier findest du Kleinmaterial für die Baustelle. Beton, Stahl,
-      Bewehrung & Schalung gehen über den Bauleiter."* Dismissible
-      (localStorage-backed).
-- [ ] Phase 7's redirect surface already covers search; this phase formalises
-      the home-screen explainer + icon.
+### Phase 8 — A-material explainer (F7, weight 8) — formalisation, stretch  `[ ]`
+
+The core deliverable (the dismissible home banner) is already shipped in
+Phase 2; the search-side redirect is shipped in Phase 7. This phase formalises
+the explainer further if time allows. Drop entirely if short.
+
+- [ ] Dedicated `/info` route reachable from a small "?" icon in the header,
+      showing a one-screen plain-language explanation: what counts as
+      C-Material (with icons), what doesn't (Beton/Stahl/Bewehrung/Schalung),
+      and how to get those instead ("frag deinen Bauleiter").
+- [ ] Surface the same friendly redirect copy used in Phase 7 on this page so
+      a foreman who lands here from the search redirect has a single,
+      consistent explanation.
 
 ### Phase 9 — Spend dashboard (F8, weight 6) — stretch  `[ ]`
 - [ ] `(procurement)/dashboard/page.tsx` with Recharts:
@@ -324,10 +386,17 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
         `created_by`).
 - [ ] All amounts in CHF. Filter by project (default = the one seeded project).
 
-### Phase 10 — Material-set templates (F9, weight 4) — cut first  `[ ]`
-- [ ] **Cut for hackathon.** Schema (`material_sets`, `material_set_items`)
-      already exists in the migration, which is enough to back the
-      "supports phase templates" claim in the pitch.
+### Phase 10 — Material-set templates: procurement-side editor (F9, weight 4) — cut  `[ ]`
+
+Foreman-side kit consumption (three seeded kits shown as one-tap tiles on the
+home screen) is **already in Phase 2** and is part of the floor. What remains
+cut is the procurement UI to **define and edit** new kits.
+
+- [ ] **Cut for hackathon.** Three kits live in the DB via the seed and can be
+      consumed by foremen end-to-end. A procurement-side editor to create
+      additional `material_sets` / edit `material_set_items` is not built;
+      schema is in place so the claim ("procurement can define kits per
+      project phase") is real and one screen away.
 
 ---
 
@@ -354,6 +423,10 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - [ ] `npm run lint` clean.
 - [ ] `npm run build` succeeds.
 - [ ] Manual exercise of the demo flow in §1 above:
+  - [ ] Banner "C-Material erklärt" appears on first foreman visit; dismiss
+        sticks across reload.
+  - [ ] Three kit tiles render on the foreman home; tapping any tile pre-fills
+        the cart with the seeded kit's items + default quantities.
   - [ ] Reorder ~40 CHF → Auto-approved → Ordered → Delivered in ~20 s.
   - [ ] Search "Fenster abdichten" → 3–5 items with reasons → larger qty →
         Pending.
@@ -381,12 +454,22 @@ them:
 - Multi-language UI beyond the German foreman / English procurement split.
 - Supplier-side accounts or supplier portal.
 - Invoice ↔ delivery-note reconciliation.
-- Punchout / IDS live connections.
+- Punchout / IDS live connections — **acknowledged in the pitch** as the
+  second supplier ingestion channel alongside CSV/PDF; no UI surface, no mock
+  endpoint, no demo beat.
 - Push notifications, in-app chat, photo-of-the-shelf reordering.
 - Real authentication (the role switcher is intentional).
+- Separate Project-Manager vs Central-Procurement approver roles — the MVP
+  collapses both into one procurement role; schema is generic, second role can
+  be layered on later. Called out as a deliberate hackathon collapse in the
+  pitch.
+- Procurement-side kit editor (creating / editing `material_sets`) — three
+  kits are seeded and foreman-consumable; an editor UI to add more is cut.
 - Per-product chip overrides (schema can carry them later; not exercised).
 - Multi-currency conversion (everything CHF).
 - Good/better/best variant grading in discovery (flat list only).
+- Guided "trade → area → kit" order wizard from the brief — the combination
+  of kit tiles + task search substitutes for it; no separate wizard route.
 - AI-classified categories (the hand-curated kategorie map is the source of truth).
 
 ---
@@ -401,6 +484,6 @@ them:
 - _Phase 5 —_ (not started)
 - _Phase 6 —_ (not started)
 - _Phase 7 —_ (not started)
-- _Phase 8 (stretch) —_ (not started)
-- _Phase 9 (stretch) —_ (not started)
-- _Phase 10 (cut) —_ (intentionally cut)
+- _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
+- _Phase 9 (stretch — spend dashboard) —_ (not started)
+- _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
