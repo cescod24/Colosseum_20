@@ -383,39 +383,42 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - **Checkpoint:** status pill animates without refresh (after Phase 5 wires
   approvals — Slice B work).
 
-### Phase 4 — Approval rules engine (F3, weight 14)  `[ ]`
-- [ ] `lib/rules.ts` — pure `decide(total, items, rules)` returning
+### Phase 4 — Approval rules engine (F3, weight 14)  `[x]`
+- [x] `lib/rules.ts` — pure `decide(total, items, rules)` returning
       `'approved' | 'pending'`. Trips pending if: `total >= threshold`, **or**
       any item's `product_group ∈ restricted_groups`, **or** any item is
-      `hazardous=true`.
-- [ ] Unit tests (Vitest or `node --test`) for `decide()` covering all three
-      branches plus the safe path.
-- [ ] `/api/orders` (POST): server fetches authoritative `unit_price` per item
+      `hazardous=true`. (Shipped in Step 0; consumed as-is.)
+- [x] Unit tests (Vitest or `node --test`) for `decide()` covering all three
+      branches plus the safe path. (`lib/rules.test.ts` via `node --test`
+      under `tsx`; covers safe path, threshold boundary, hazardous,
+      restricted-group, null group, empty cart, multi-trip, empty rules.)
+- [x] `/api/orders` (POST): server fetches authoritative `unit_price` per item
       (clients cannot spoof the total), computes total, calls `decide()`,
       INSERTs `orders` + `order_items`, returns assigned status.
 - **Checkpoint:** ~40 CHF safe order auto-approves; ~310 CHF order → pending;
-  ~50 CHF hazardous order → pending.
+  ~50 CHF hazardous order → pending. (Code path verified by unit tests; live
+  exercise gated on Dev C's seed.)
 
-### Phase 5 — Procurement approval queue (F4, weight 12)  `[ ]`
-- [ ] `(procurement)/queue/page.tsx`: pending orders with total, items count,
+### Phase 5 — Procurement approval queue (F4, weight 12)  `[x]`
+- [x] `(procurement)/queue/page.tsx`: pending orders with total, items count,
       project, orderer, created-at. **Unit prices visible per line.** Two
-      buttons: Approve / Reject.
-- [ ] `/api/orders/[id]/decide` (POST):
-  - [ ] On Approve: build comstruct-shaped payload (project ref, supplier_id,
+      buttons: Approve / Reject. (Server actions delegate to
+      `lib/server/orders.ts`; `revalidatePath` refreshes the queue.)
+- [x] `/api/orders/[id]/decide` (POST):
+  - [x] On Approve: build comstruct-shaped payload (project ref, supplier_id,
         supplier_sku, qty, unit, unit_price, currency, hazardous, totals) →
         INSERT into `mock_comstruct_orders` → `console.log` → set
         `orders.status='ordered'`, `decided_by`, `decided_at`.
-  - [ ] Schedule a follow-up flip to `delivered` ~8 s later (fire-and-forget
+  - [x] Schedule a follow-up flip to `delivered` ~8 s later (fire-and-forget
         `setTimeout` calling an internal RPC is fine for the hackathon).
-  - [ ] On Reject: set `status` to a terminal rejected state (or back to
-        `draft` with a rejection reason — keep it simple; status enum already
-        covers `pending → approved/rejected` semantics; if no rejected state
-        is wanted, just mark `decided_*` and leave it visible).
-- [ ] `(procurement)/project/page.tsx`: edit `auto_approve_threshold` and
+  - [x] On Reject: set `status='rejected'` (via migration 0002) +
+        `decided_by` + `decided_at`. Queue filters `decided_at IS NULL`.
+- [x] `(procurement)/project/page.tsx`: edit `auto_approve_threshold` and
       `restricted_groups`. Form POSTs to a small project-update handler.
 - **Checkpoint:** approving flips foreman's pill live → Approved → Ordered →
   Delivered ~8 s later. A `mock_comstruct_orders` row exists with a
-  comstruct-shaped payload.
+  comstruct-shaped payload. (End-to-end exercise gated on Dev C's seed +
+  Dev A's foreman cart submitting orders into `pending` state.)
 
 ### Phase 6 — Catalog ingestion CSV + PDF (F5, weight 12)  `[x]` (slice C)
 
@@ -658,6 +661,8 @@ them:
   `orders` filtered to the caller's profile, with a 5 s `/api/orders/list`
   polling fallback (Dev B-owned endpoint — client tolerates a 404 until
   Dev B ships it). Pending rows show the "Warte auf Einkauf" subtitle.
+- _Phase 4 —_ **done** (Dev B lane). `lib/rules.test.ts` + `app/api/orders/route.ts`. Adds `lib/server/demo-profile.ts` (cookie → profile UUID via `display_name == cookie value` convention — matches slice C's seeded `profiles.display_name` of `foreman-a` / `foreman-b` / `procurement`) and migration `0002_add_rejected_status.sql` (additive — extends `orders.status` CHECK to include `'rejected'` for Phase 5).
+- _Phase 5 —_ **done** (Dev B lane). `lib/server/orders.ts` extracts the approve/reject logic so both `/api/orders/[id]/decide` and the queue's server actions share one code path. `app/procurement/{layout,queue/page,project/page}.tsx` ship the approval queue (line-item drilldown with full unit prices + hazardous flag) and project-rules editor. The procurement layout's nav also surfaces slice C's `/procurement/ingest` and `/procurement/discover-test` so the placeholder's discoverability is preserved.
 - _Phase 7 (UI) —_ **done** (Slice A, merged from `dev-a`).
   `app/foreman/discover/page.tsx` + `DiscoverClient` + `CategoryGrid`:
   9-tile icon grid from `categories.ts` (canonical keys: fasteners /
@@ -670,8 +675,6 @@ them:
   a "Zurück zu den Kategorien" button. Reuses the same `CartBar` +
   localStorage cart as the home, so a discover → home → submit flow shares
   the cart end-to-end.
-- _Phase 4 —_ (not started)
-- _Phase 5 —_ (not started)
 - _Phase 6 —_ **done** (slice C, merged to `main`). `/api/ingest` (CSV + PDF),
   `(procurement)/ingest` review screen, robust extraction prompt, canned
   fallbacks for both PDFs ([lib/canned/ingest.ts](lib/canned/ingest.ts)),

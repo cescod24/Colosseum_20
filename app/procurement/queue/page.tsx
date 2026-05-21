@@ -1,66 +1,215 @@
-import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { getDemoRole } from "@/lib/role";
+import { resolveProfileForRole } from "@/lib/server/demo-profile";
+import { getServerClient } from "@/lib/supabase/server";
+import { approveOrder, rejectOrder } from "@/lib/server/orders";
+import { copyEn } from "@/lib/constants/copy.en";
 
-// Placeholder — the real procurement queue lands in Phase 5 (slice B).
-// Slice C surfaces its working pages from here so reviewers can find them.
+type QueueLine = {
+  qty: number;
+  unit_price: number;
+  products: {
+    name: string;
+    unit: string;
+    hazardous: boolean;
+    suppliers: { name: string };
+  };
+};
 
-export default function ProcurementQueuePlaceholder() {
+type QueueOrder = {
+  id: string;
+  total: number;
+  currency: string;
+  created_at: string;
+  profiles: { display_name: string } | null;
+  order_items: QueueLine[];
+};
+
+const fmtCurrency = (value: number, currency: string) =>
+  new Intl.NumberFormat("en-CH", { style: "currency", currency }).format(value);
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleString("en-CH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+async function approveAction(formData: FormData) {
+  "use server";
+  const orderId = String(formData.get("orderId") ?? "");
+  if (!orderId) return;
+  const role = await getDemoRole();
+  if (role !== "procurement") return;
+  const profile = await resolveProfileForRole(role);
+  if (!profile) return;
+  await approveOrder(orderId, profile.id);
+  revalidatePath("/procurement/queue");
+}
+
+async function rejectAction(formData: FormData) {
+  "use server";
+  const orderId = String(formData.get("orderId") ?? "");
+  if (!orderId) return;
+  const role = await getDemoRole();
+  if (role !== "procurement") return;
+  const profile = await resolveProfileForRole(role);
+  if (!profile) return;
+  await rejectOrder(orderId, profile.id);
+  revalidatePath("/procurement/queue");
+}
+
+export default async function QueuePage() {
+  const supabase = getServerClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      "id, total, currency, created_at, profiles!orders_created_by_fkey (display_name), order_items (qty, unit_price, products (name, unit, hazardous, suppliers (name)))",
+    )
+    .eq("status", "pending")
+    .is("decided_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return (
+      <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
+        {error.message}
+      </p>
+    );
+  }
+
+  const orders = (data ?? []) as unknown as QueueOrder[];
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-12">
+    <section className="space-y-6">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Procurement
-        </p>
-        <div className="flex items-baseline justify-between gap-4">
-          <h1 className="text-2xl font-semibold">Workbench</h1>
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900">
-            ← role picker
-          </Link>
-        </div>
-        <p className="text-sm text-zinc-600">
-          The approval queue (Phase 5, slice B) is not built yet. In the
-          meantime, the slice-C pages below already work end-to-end.
-        </p>
+        <h1 className="text-2xl font-semibold text-zinc-900">
+          {copyEn["queue.title"]}
+        </h1>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/procurement/ingest"
-          className="block space-y-2 rounded-2xl bg-white p-5 ring-1 ring-zinc-200 hover:ring-zinc-400"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Phase 6 — Slice C
-          </p>
-          <p className="text-base font-semibold">Catalog ingestion</p>
-          <p className="text-sm text-zinc-600">
-            Upload a CSV or contract PDF. Rows with null price, null unit, or
-            low confidence land in <em>review</em>.
-          </p>
-        </Link>
-        <Link
-          href="/procurement/discover-test"
-          className="block space-y-2 rounded-2xl bg-white p-5 ring-1 ring-zinc-200 hover:ring-zinc-400"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Phase 7 backend — Slice C
-          </p>
-          <p className="text-base font-semibold">Discover smoke test</p>
-          <p className="text-sm text-zinc-600">
-            Test <code>POST /api/discover</code> — task → ranked items, with
-            A-material redirect.
-          </p>
-        </Link>
-        <div className="block space-y-2 rounded-2xl bg-zinc-50 p-5 ring-1 ring-zinc-200">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Phase 5 — Slice B
-          </p>
-          <p className="text-base font-semibold text-zinc-500">
-            Approval queue
-          </p>
-          <p className="text-sm text-zinc-500">
-            Not built yet.
-          </p>
+      {orders.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500">
+          {copyEn["queue.empty"]}
         </div>
-      </section>
-    </main>
+      ) : (
+        <ul className="space-y-4">
+          {orders.map((order) => (
+            <li
+              key={order.id}
+              className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-100 px-5 py-4">
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">
+                    {copyEn["queue.col_foreman"]}
+                  </p>
+                  <p className="font-medium text-zinc-900">
+                    {order.profiles?.display_name ?? "unknown"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">
+                    {copyEn["queue.col_items"]}
+                  </p>
+                  <p className="font-medium text-zinc-900">
+                    {order.order_items.length}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">
+                    {copyEn["queue.col_total"]}
+                  </p>
+                  <p className="font-semibold text-zinc-900">
+                    {fmtCurrency(Number(order.total), order.currency)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">
+                    {copyEn["queue.col_submitted"]}
+                  </p>
+                  <p className="text-sm text-zinc-700">
+                    {fmtDate(order.created_at)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <form action={approveAction}>
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+                    >
+                      {copyEn["queue.approve"]}
+                    </button>
+                  </form>
+                  <form action={rejectAction}>
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-400"
+                    >
+                      {copyEn["queue.reject"]}
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+                  <tr>
+                    <th className="px-5 py-2 font-medium">Product</th>
+                    <th className="px-5 py-2 font-medium">Supplier</th>
+                    <th className="px-5 py-2 text-right font-medium">
+                      {copyEn["queue.line_qty"]}
+                    </th>
+                    <th className="px-5 py-2 text-right font-medium">
+                      {copyEn["queue.line_unit_price"]}
+                    </th>
+                    <th className="px-5 py-2 text-right font-medium">
+                      {copyEn["queue.line_total"]}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.order_items.map((line, idx) => {
+                    const lineTotal =
+                      Math.round(
+                        Number(line.qty) * Number(line.unit_price) * 100,
+                      ) / 100;
+                    return (
+                      <tr
+                        key={`${order.id}-${idx}`}
+                        className="border-t border-zinc-100"
+                      >
+                        <td className="px-5 py-2">
+                          <span className="text-zinc-900">
+                            {line.products.name}
+                          </span>
+                          {line.products.hazardous && (
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                              {copyEn["queue.hazardous_flag"]}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-2 text-zinc-600">
+                          {line.products.suppliers.name}
+                        </td>
+                        <td className="px-5 py-2 text-right text-zinc-700">
+                          {Number(line.qty)} {line.products.unit}
+                        </td>
+                        <td className="px-5 py-2 text-right text-zinc-700">
+                          {fmtCurrency(Number(line.unit_price), order.currency)}
+                        </td>
+                        <td className="px-5 py-2 text-right font-medium text-zinc-900">
+                          {fmtCurrency(lineTotal, order.currency)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
