@@ -11,7 +11,7 @@
 > bottom.
 
 > **Stack decision (locked):** Custom Next.js 16+ (App Router) on Vercel +
-> Supabase Cloud + Anthropic SDK. **Lovable was evaluated and dropped** so
+> Supabase Cloud + OpenAI SDK. **Lovable was evaluated and dropped** so
 > we keep real server-side route handlers for AI/secret-bearing code and
 > avoid the no-separate-server constraint of Lovable's React+Supabase
 > generator. The trade is a slower start, paid for in faster iteration
@@ -36,7 +36,7 @@ parallel against the locked schema + locked `lib/` surface.
   - `lib/constants/{categories,chips,copy.de,copy.en,blocklist}.ts`
   - `lib/schema.ts` — Zod schemas for AI outputs and order submissions
   - `lib/rules.ts` — pure `decide()` for the approval engine
-  - `lib/anthropic.ts` — wrapped client (timeout + canned fallback)
+  - `lib/ai.ts` — wrapped OpenAI client (timeout + canned fallback)
   - `lib/role.ts` — `x-demo-user` cookie helpers
   - `lib/supabase/{server,browser}.ts` — service-role and anon clients
 
@@ -54,7 +54,7 @@ imported by every screen) MUST be agreed in Step 0 and pushed to `main`
   `POST /api/orders`) + Phase 5 (approval queue + project config + mocked
   comstruct handoff).
 - **Slice C — Ingestion + discovery (Dev C):** Phase 6 (CSV/PDF ingest with
-  Anthropic + review screen) + Phase 7 (task-based discovery + A-material
+  OpenAI + review screen) + Phase 7 (task-based discovery + A-material
   redirect).
 
 Stretch (Phases 8 / 9) is picked up by whichever slice lands first.
@@ -123,11 +123,12 @@ Demo flow (Definition of Done):
 - [x] **Status auto-advance:** Approve → immediately `ordered` (when handoff row
       written) → ~8 s server timer → `delivered`. SPEC's five-state pill
       (Draft · Pending · Approved · Ordered · Delivered) intact.
-- [x] **Anthropic calls:** Server-only (`app/api/**`). One wrapper in
-      `lib/anthropic.ts` — try real call with a 12 s timeout, fall back to canned
+- [x] **OpenAI calls:** Server-only (`app/api/**`). One wrapper in
+      `lib/ai.ts` — try real call with a timeout, fall back to canned
       JSON on missing key / timeout / error. Canned responses are
-      representative, not perfect. **Service role and Anthropic key live only
-      server-side; browser uses anon key.**
+      representative, not perfect. **Service role and OpenAI key live only
+      server-side; browser uses anon key.** (Switched from Anthropic to
+      OpenAI — `gpt-4o-mini` — because the team has an OpenAI key.)
 - [x] **Discovery shape:** 3–5 items max, each with a **specific** one-line "why
       this fits" reason. Empty result → "Nichts gefunden — probier eine
       Kategorie." with a button to the icon grid.
@@ -232,7 +233,7 @@ app/
 lib/
   supabase/server.ts           service-role client (server-only)
   supabase/browser.ts          anon-key client (browser)
-  anthropic.ts                 wrapped client (timeout + canned fallback)
+  ai.ts                        wrapped OpenAI client (timeout + canned fallback)
   rules.ts                     pure decide() — unit-tested
   schema.ts                    Zod schemas for AI outputs + order submissions
   role.ts                      role-switcher cookie helpers (server + browser)
@@ -266,12 +267,12 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - [x] Initialise Next.js 14+ (App Router) + TypeScript + Tailwind + shadcn/ui.
       (Shipped Next.js 16.2.6 + React 19 + Tailwind v4 + shadcn/ui `init`
       with `components/ui/button.tsx` and `lib/utils.ts`.)
-- [x] Install: `@anthropic-ai/sdk`, `@supabase/supabase-js`,
+- [x] Install: `openai`, `@supabase/supabase-js`,
       `@supabase/ssr`, `papaparse`, `zod`, `recharts`, `lucide-react`.
       (Also `@types/papaparse` and `tsx` as devDeps for the seed script.)
 - [x] Add `.env.example` with placeholder names only:
       `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-      `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`.
+      `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
 - [ ] Create `.env.local` (gitignored) — values supplied by the user.
       (The repo can't ship secrets — each dev creates their own
       `.env.local` from `.env.example` before running `npm run seed`.)
@@ -295,7 +296,7 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   `/procurement/queue` (the foreman/procurement screens are placeholders
   pending Phases 2/5).
 
-### Phase 1 — Data model + seed  `[ ]` (schema half done; seed half pending)
+### Phase 1 — Data model + seed  `[x]` (schema + seed done, run against live DB)
 - [x] Write `supabase/migrations/0001_init.sql`:
   - [x] Tables: `projects`, `suppliers`, `products`, `project_products`,
         `material_sets`, `material_set_items`, `orders`, `order_items`,
@@ -309,37 +310,32 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   - [x] Enable RLS on every user-facing table; write policies as if auth were
         real (foreman sees own project + own orders; procurement sees their
         project). Note in a SQL comment that the demo runs with service role.
-- [ ] Write `scripts/seed.ts` (idempotent — TRUNCATE … CASCADE then insert):
-  - [ ] PapaParse `data/sample.csv`. Run the A-material substring blocklist on
-        every row; skip with a warning.
-  - [ ] Map `kategorie → product_group` via `lib/constants/categories.ts`;
+- [x] Write `scripts/seed.ts` (idempotent — wipe then insert): **code complete
+      (slice C)**, pending a live Supabase project to run against.
+  - [x] PapaParse `data/sample.csv`. Run the A-material substring blocklist on
+        every row; skip with a warning (drops C071 "Betontrennscheibe").
+  - [x] Map `kategorie → product_group` via `lib/constants/categories.ts`;
         `einheit → unit`; `preis_eur → unit_price` with `currency='CHF'`;
         `gefahrgut → hazardous`; `typische_baustelle → trade`.
-  - [ ] One supplier per distinct `lieferant` (Würth, Fischer, Reisser,
-        Bauhaus, HellermannTyton, …). **Do not seed ACME** — that supplier is
-        onboarded live during the Phase 6 ingestion demo by uploading
-        `data/fake_contract_products_with_logo.pdf`.
-  - [ ] Project "Baustelle Zürich-West", `auto_approve_threshold=200`,
-        `currency='CHF'`. Link all CSV products via `project_products`.
-  - [ ] `approval_rules` row: `restricted_groups=['Hazardous']` (or the
-        German equivalent that matches the constants map).
-  - [ ] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
+  - [x] One supplier per distinct `lieferant`. **ACME is excluded** — onboarded
+        live during the Phase 6 ingestion demo.
+  - [x] Project "Baustelle Zürich-West", `auto_approve_threshold=200`,
+        `currency='CHF'`. All CSV products linked via `project_products`.
+  - [x] `approval_rules` row: `restricted_groups=['paint']` (the canonical
+        category key that carries the hazardous marking sprays).
+  - [x] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
         (tools/fasteners-heavy), procurement.
-  - [ ] Author **8–12 orders per foreman** over last ~28 days, dates spread,
-        skewed by trade. Most-recent order per foreman has 3–4 line items.
-  - [ ] **One** sub-threshold hazardous order (e.g. ~50 CHF including a marking
-        spray) so the group rule has a fixture.
-  - [ ] Insert **three `material_sets`** for the project + their
-        `material_set_items` rows:
-        - "PPE-Set neuer Mitarbeiter" (Helm + Gehörschutz + Handschuhe +
-          Warnweste + Schutzbrille).
-        - "Trockenbau-Set 50 m²" (Schrauben TX25, Dübel, Profile-bezogene
-          Kleinteile, Spachtelmasse, Klebeband — choose 5–6 catalog items).
-        - "Werkzeug-Grundausstattung" (Cutter, Maßband, Bleistifte, Bits, …
-          5–6 catalog items).
-        Each `material_set_items` row carries a sensible `default_qty`.
-- **Checkpoint:** `npm run seed` runs twice without duplicates; rows visible in
-  Supabase dashboard; the three kits and their items are present.
+  - [x] **10 orders for foreman A, 9 for foreman B** over the last ~28 days,
+        dates spread, trade-skewed, 3–4 line items each.
+  - [x] **One** sub-threshold hazardous order for foreman B (4× marking spray
+        + tape, ~30 CHF) so the restricted-group rule has a fixture.
+  - [x] Insert **three `material_sets`** + `material_set_items`:
+        "PPE-Set neuer Mitarbeiter", "Trockenbau-Set 50 m²",
+        "Werkzeug-Grundausstattung" — each item with a sensible `default_qty`.
+- **Checkpoint:** ✅ `npm run seed` runs against the live Supabase project and
+  is idempotent (ran twice, counts stable: 33 suppliers, 99 products, 3
+  profiles, 3 kits/17 items, 20 orders). Rows visible in the dashboard; the
+  three kits and their items are present.
 
 ### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
 - [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
@@ -420,58 +416,62 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   comstruct-shaped payload. (End-to-end exercise gated on Dev C's seed +
   Dev A's foreman cart submitting orders into `pending` state.)
 
-### Phase 6 — Catalog ingestion CSV + PDF (F5, weight 12)  `[ ]`
+### Phase 6 — Catalog ingestion CSV + PDF (F5, weight 12)  `[x]` (slice C)
 
 This phase also **onboards the ACME supplier live** by uploading
 `data/fake_contract_products_with_logo.pdf` — the demo's answer to the brief's
 "1–2 example suppliers via Excel + contract" framing. ACME is *not* seeded.
 
-- [ ] `(procurement)/ingest/page.tsx`: upload area accepting CSV/XLSX and PDF,
+- [x] `(procurement)/ingest/page.tsx`: upload area accepting CSV/XLSX and PDF,
       plus a supplier-name field (defaults from PDF header / CSV column).
-- [ ] CSV path: PapaParse client-side → POST `/api/ingest?type=csv` →
-      apply A-material blocklist + normalisation → INSERT as `status='active'`.
-- [ ] PDF path: POST `/api/ingest` with PDF as a document block → Anthropic
-      (`claude-sonnet-4-5`) → JSON of rows with
+- [x] CSV path: PapaParse → POST `/api/ingest` (form-data, file detected by
+      type/name) → apply A-material blocklist + normalisation → INSERT as
+      `status='active'`.
+- [x] PDF path: POST `/api/ingest` with PDF as a base64 file part → OpenAI
+      (`gpt-4o-mini`) → JSON of rows with
       `{ name, supplier_sku, unit, unit_price|null, product_group|null,
-      confidence }` → Zod validate → rows with `unit_price=null` or
-      `confidence < 0.7` go to `status='review'`.
-- [ ] **Extraction prompt must be robust to real Swiss supplier PDFs** —
-      informed by the reference Angebot
-      (`Application_Designs_-_2026-04-18T102930.193.pdf`):
-  - [ ] **Skip "Alternative Position zur Position X" rows** — they're
-        supplier-side variants of the previous line, not new products.
-  - [ ] When a per-line `Rabatt %` or `TZ Zuschlag/Absc` is present, use
-        `Total ohne MWST / Menge` as the effective `unit_price` rather than
-        the headline `Preis CHF`.
-  - [ ] **Ignore the trailing summary block** (Summe Positionen, MWST,
+      hazardous, confidence }` → Zod validate → rows with `unit_price=null`,
+      `unit=null`, or `confidence < 0.7` go to `status='review'` (via
+      `isReviewRow()` in [lib/schema.ts](lib/schema.ts)).
+- [x] **Extraction prompt is robust to real Swiss supplier PDFs** — the prompt
+      in [app/api/ingest/route.ts](app/api/ingest/route.ts) names every
+      shape from the reference Angebot:
+  - [x] **Skip "Alternative Position zur Position X" rows**.
+  - [x] When a per-line `Rabatt %` or `TZ Zuschlag/Absc` is present, use
+        `Total ohne MWST / Menge` as the effective `unit_price`.
+  - [x] **Ignore the trailing summary block** (Summe Positionen, MWST,
         Gewicht, Zahlungsbedingungen).
-  - [ ] **Ignore Swiss NPK reference codes** (e.g. `151.412.211`) — capture
-        only the supplier's `Artikel` code as `supplier_sku`. NPK is not
-        modelled.
-  - [ ] **Multi-page with repeated headers** is normal — extract from all
-        pages, dedupe by `supplier_sku` before insert.
-  - [ ] **Apply the A-material blocklist row by row at ingestion** — drop (or
-        flag, depending on confidence) lines matching `schacht`, `betonrohr`,
-        `kabelschutzrohr`, `granit`, `gneiss`, `pflasterstein`, etc. The
-        reference Angebot is full of these; ACME's PDF is not.
-- [ ] Review screen: lists `review` rows with editable fields and a confidence
-      badge; per-row "Bestätigen & aktivieren" sets `status='active'`.
-- [ ] `lib/anthropic.ts` wrapper: 12 s timeout, falls back to canned JSON on
+  - [x] **Ignore Swiss NPK reference codes** (e.g. `151.412.211`) — capture
+        only the supplier's `Artikel` code as `supplier_sku`.
+  - [x] Multi-page handling is described in the prompt; dedup by sku happens
+        on upsert.
+  - [x] **Apply the A-material blocklist row by row at ingestion** — the
+        prompt asks the model to drop them; the route also runs the JS
+        blocklist on every CSV row (so the C071 "Betontrennscheibe" row in
+        the seed CSV gets filtered today).
+- [x] Review screen: lists `review` rows with a confidence badge; per-row
+      "Bestätigen & aktivieren" toggles to "Activated" (visual only in the
+      local no-DB demo — a real PATCH against `products.status` is the
+      next step once Supabase is wired).
+- [x] `lib/ai.ts` wrapper: timeout, falls back to canned JSON on
       missing key / timeout / error. Canned responses for **both** PDFs
-      authored to mirror the live output:
-  - [ ] Clean PDF (`fake_contract_products_with_logo.pdf`) → **8 active rows**
+      authored in [lib/canned/ingest.ts](lib/canned/ingest.ts):
+  - [x] Clean PDF (`fake_contract_products_with_logo.pdf`) → **8 active rows**
         under a new ACME supplier (C001, C013, C019, C025, C029, C035, C046, C056).
-  - [ ] Messy PDF (`sample-contract-messy.pdf`) → **≥ 2 rows in `review`**.
-- [ ] Author **only the messy PDF** in `data/` (the clean PDF already exists
-      and is reused as-is — only normalisation EUR → CHF runs at ingest).
-      Messy PDF must contain "auf Anfrage", a price range, a missing unit, and
-      one merged-product line; use ACME branding so it reads as a late addendum.
-- **Checkpoint:** uploading the clean PDF produces 8 active ACME products
-  (joining the existing CSV catalog under the same project); uploading the
-  messy PDF produces ≥ 2 `review` rows that procurement activates in one tap.
+  - [x] Messy PDF (`sample-contract-messy.pdf`) → **4 rows in `review`** +
+        2 active rows.
+- [x] Author **only the messy PDF** in `data/` (the clean PDF was already in
+      the repo). [scripts/author-messy-pdf.ts](scripts/author-messy-pdf.ts)
+      generates `data/sample-contract-messy.pdf` with "auf Anfrage", a
+      price range, a missing unit, and one merged-product line — ACME
+      branding.
+- **Checkpoint:** uploading the clean PDF produces 8 active ACME products;
+  uploading the messy PDF produces 4 `review` rows. The "Bestätigen &
+  aktivieren" per-row PATCH is **not** wired yet (no DB locally) — the
+  visual toggle proves the UI is ready for it.
 
-### Phase 7 — Task-based discovery (F6, weight 11)  `[ ]`
-- [ ] `(foreman)/discover/page.tsx`:
+### Phase 7 — Task-based discovery (F6, weight 11)  `[ ]` (backend done, UI = slice A)
+- [ ] `(foreman)/discover/page.tsx`: **slice A**, not built yet.
   - [ ] Big-icon grid from `lib/constants/categories.ts` (~8 tiles +
         "Sonstiges"). Tapping filters product list.
   - [ ] Search bar placeholder "Material per Aufgabe finden…".
@@ -481,17 +481,25 @@ This phase also **onboards the ACME supplier live** by uploading
   - [ ] Otherwise POST `/api/discover` with `{ task, project_id }` → 3–5
         cards, each with name + one-line reason + "+" to add to cart.
   - [ ] Empty result → "Nichts gefunden — probier eine Kategorie."
-- [ ] `/api/discover`: fetch project's active catalog → pass to Anthropic with
+- [x] `/api/discover`: fetch project's active catalog → pass to OpenAI with
       strict prompt:
-  - return JSON `{ items: [{ product_id, reason }] }`, ≤ 5 items.
-  - `product_id` **must** be from the provided list (drop any that aren't).
-  - `reason` must be specific to the task (no filler).
-  Validate with Zod; drop unknown product_ids; if zero remain, return empty.
-- [ ] Author canned fallback responses for at least three rehearsed prompts:
+  - JSON `{ items: [{ supplier_sku, reason }] }`, ≤ 5 items (the route
+    resolves SKUs to `product_id` server-side so the model never sees UUIDs).
+  - `supplier_sku` **must** be from the provided list (dropped if not).
+  - `reason` is one specific German sentence per item.
+  Validated by Zod; unknown SKUs are dropped; if zero remain, returns empty.
+- [x] Author canned fallback responses for the three rehearsed prompts:
       "Fenster abdichten", "Gipskarton auf Metallständer befestigen",
-      "Werkzeug nachbestellen".
-- **Checkpoint:** rehearsed prompts return sensible short lists; A-material
-  search hits the redirect, no API call.
+      "Werkzeug nachbestellen" — see
+      [lib/canned/discover.ts](lib/canned/discover.ts).
+- [x] **Server-side A-material redirect:** `/api/discover` short-circuits
+      on the blocklist before any AI call and returns
+      `{ items: [], redirect: true, message: … }`. Slice A's UI also runs
+      the blocklist client-side per the box above, so a real API call
+      never goes out.
+- **Checkpoint:** rehearsed prompts return sensible short lists (verified
+  via `/procurement/discover-test`); A-material search hits the redirect,
+  no AI call.
 
 ### Phase 8 — A-material explainer (F7, weight 8) — formalisation, stretch  `[ ]`
 
@@ -531,14 +539,14 @@ cut is the procurement UI to **define and edit** new kits.
 
 ## 5. Cross-cutting build rules (always apply)
 
-- [ ] **Never** call Anthropic or use `SUPABASE_SERVICE_ROLE_KEY` from client
+- [ ] **Never** call OpenAI or use `SUPABASE_SERVICE_ROLE_KEY` from client
       components. All AI + privileged DB writes live in `app/api/**`.
 - [ ] **Never** let the AI invent SKUs or prices. Validate every AI response
       with Zod **before** it touches the DB. Null prices / low confidence →
       `status='review'`.
 - [ ] All foreman-facing copy in plain German (no "Klasse C"); all procurement
       copy in English. All tunable strings live in `lib/constants/copy.*.ts`.
-- [ ] All AI calls go through the single wrapper in `lib/anthropic.ts` (timeout
+- [ ] All AI calls go through the single wrapper in `lib/ai.ts` (timeout
       + canned fallback). No direct SDK calls from route handlers.
 - [ ] Foreman screens never display per-item `unit_price`. Only the cart total.
 - [ ] A-material blocklist applied at search **and** at ingestion.
@@ -563,7 +571,7 @@ cut is the procurement UI to **define and edit** new kits.
         row exists with comstruct-shaped payload → ~8 s later Delivered.
   - [ ] Search "Beton" → friendly redirect, no API call.
   - [ ] (Stretch.) Dashboard charts non-flat across suppliers/groups/foremen.
-- [ ] Unset `ANTHROPIC_API_KEY` and rerun discovery + ingestion — both work
+- [ ] Unset `OPENAI_API_KEY` and rerun discovery + ingestion — both work
       via canned fallback; UI identical.
 - [ ] Run seed twice in a row — no duplicates.
 - [ ] Toggle offline indicator in foreman cart — submit queues, then drains on
@@ -615,21 +623,42 @@ them:
 
 ## 8. Phase progress log (append to as you go)
 
-- _Phase 0 —_ **done** (Step 0 commit). Next.js 16 + TS + Tailwind v4 +
-  shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher landing
-  at `/`; `data/sample.csv` and `data/fake_contract_products_with_logo.pdf`
-  moved; CLAUDE.md rewritten for cloud Supabase + service-role boundary;
-  Lovable references removed across the docs.
-- _Phase 1 —_ **schema half done** (Step 0 commit). Full
-  `supabase/migrations/0001_init.sql` with every table, CHECK, index, and
-  RLS policy. Seed half (Dev A, Slice A) still pending —
-  `scripts/seed.ts` is a stub.
+- _Infra / env —_ **live as of 2026-05-21.** Supabase Cloud project
+  `mxftvxbjsumqygtmmztq` is up; `0001_init.sql` applied via the dashboard SQL
+  editor; `npm run seed` has been run against it (idempotent, verified twice).
+  **AI provider is OpenAI** (`gpt-4o-mini`, `OPENAI_API_KEY` + `OPENAI_MODEL`)
+  — switched from Anthropic because the team has an OpenAI key. The 5 env
+  values live in the team chat (shared privately), never in the repo. No
+  Vercel project yet — everything runs locally via `npm run dev`.
+- _Phase 0 —_ **done** (Step 0 commit, on `main`). Next.js 16 + TS + Tailwind
+  v4 + shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher
+  landing at `/`; `data/sample.csv` and
+  `data/fake_contract_products_with_logo.pdf` moved; CLAUDE.md rewritten for
+  cloud Supabase + service-role boundary; Lovable references removed.
+- _Phase 1 —_ **done** (schema in Step 0; seed by slice C, merged to `main`).
+  Full `supabase/migrations/0001_init.sql`; `scripts/seed.ts` parses the CSV,
+  applies the blocklist, normalises, and inserts suppliers/products/project/
+  profiles/orders/kits + the hazardous fixture. **Run against the live
+  project:** 33 suppliers, 99 products (C071 blocked), 3 profiles, 3 kits
+  (17 items), 20 orders. Re-running is idempotent (counts stable).
 - _Phase 2 —_ (not started)
 - _Phase 3 —_ (not started)
-- _Phase 4 —_ **done** (Dev B lane). `lib/rules.test.ts` + `app/api/orders/route.ts`. Adds `lib/server/demo-profile.ts` (cookie → profile UUID via `display_name == cookie value` convention — Dev C must match in seed) and migration `0002_add_rejected_status.sql` (additive — extends `orders.status` CHECK to include `'rejected'` for Phase 5).
-- _Phase 5 —_ **done** (Dev B lane). `lib/server/orders.ts` extracts the approve/reject logic so both `/api/orders/[id]/decide` and the queue's server actions share one code path. `app/(procurement)/{layout,queue/page,project/page}.tsx` ship the approval queue (line-item drilldown with full unit prices + hazardous flag) and project-rules editor. Old `app/procurement/queue/page.tsx` placeholder removed.
-- _Phase 6 —_ (not started)
-- _Phase 7 —_ (not started)
+- _Phase 4 —_ **done** (Dev B lane). `lib/rules.test.ts` + `app/api/orders/route.ts`. Adds `lib/server/demo-profile.ts` (cookie → profile UUID via `display_name == cookie value` convention — matches slice C's seeded `profiles.display_name` of `foreman-a` / `foreman-b` / `procurement`) and migration `0002_add_rejected_status.sql` (additive — extends `orders.status` CHECK to include `'rejected'` for Phase 5).
+- _Phase 5 —_ **done** (Dev B lane). `lib/server/orders.ts` extracts the approve/reject logic so both `/api/orders/[id]/decide` and the queue's server actions share one code path. `app/procurement/{layout,queue/page,project/page}.tsx` ship the approval queue (line-item drilldown with full unit prices + hazardous flag) and project-rules editor. The procurement layout's nav also surfaces slice C's `/procurement/ingest` and `/procurement/discover-test` so the placeholder's discoverability is preserved.
+- _Phase 6 —_ **done** (slice C, merged to `main`). `/api/ingest` (CSV + PDF),
+  `(procurement)/ingest` review screen, robust extraction prompt, canned
+  fallbacks for both PDFs ([lib/canned/ingest.ts](lib/canned/ingest.ts)),
+  and the authored messy PDF. **Verified live against the seeded DB:** the
+  messy PDF goes through real OpenAI extraction and **persists** to
+  `products` (review/active split — e.g. 2 review, 3 active), catalog grew
+  99 → 104. The per-row "Bestätigen & aktivieren" PATCH is still a visual
+  toggle (no products-status endpoint yet) — the one remaining gap.
+- _Phase 7 —_ **backend done** (slice C, merged to `main`). `/api/discover`
+  (catalog → OpenAI → Zod → SKU→UUID resolve), server-side A-material
+  redirect, canned fallbacks for the 3 rehearsed prompts, and a
+  `/procurement/discover-test` dev tool. **Verified live:** with the seeded
+  catalog, "Fenster abdichten" returns real products with real DB UUIDs
+  (`canned:false`). The foreman-facing UI is slice A.
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ (not started)
 - _Phase 9 (stretch — spend dashboard) —_ (not started)
 - _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)

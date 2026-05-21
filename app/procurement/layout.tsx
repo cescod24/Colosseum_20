@@ -41,6 +41,18 @@ export default async function ProcurementLayout({
               >
                 {copyEn["nav.project"]}
               </Link>
+              <Link
+                href="/procurement/ingest"
+                className="font-medium text-zinc-900 hover:text-zinc-600"
+              >
+                Ingest
+              </Link>
+              <Link
+                href="/procurement/discover-test"
+                className="font-medium text-zinc-900 hover:text-zinc-600"
+              >
+                Discover
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">

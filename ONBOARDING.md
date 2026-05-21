@@ -4,6 +4,48 @@
 > this, read `CLAUDE.md`, then `plan.md`, then `C-Materials_Ordering_PRD.md`
 > as needed.
 
+## Current state (updated 2026-05-21) — READ THIS FIRST
+
+We are **past Step 0**. What has landed on `main`:
+
+- **Step 0** (scaffold + schema + locked `lib/` surfaces).
+- **Slice C** (data + AI): the seed, `/api/ingest`, `/api/discover`, the
+  procurement ingest review screen, and a `/procurement/discover-test` dev
+  tool.
+- **AI provider is OpenAI**, not Anthropic. Wrapper is `lib/ai.ts`; env vars
+  are `OPENAI_API_KEY` + `OPENAI_MODEL` (default `gpt-4o-mini`). The switch
+  happened because the team has an OpenAI key.
+
+**Infrastructure is live:**
+
+- Supabase Cloud project is up, `0001_init.sql` is **already applied**, and
+  `npm run seed` has **already been run** against it (99 products, 33
+  suppliers, 3 profiles, 3 kits, 20 orders). The DB is **shared** — you do
+  **not** need to re-apply the migration or re-run the seed. Re-running
+  `npm run seed` wipes and reseeds the shared data, so only do it if you
+  intend to reset it (e.g. before a clean demo).
+- The 5 env values have been **shared in the team chat** (private). They are
+  never committed. To work locally: `cp .env.example .env.local` and paste
+  the values from chat.
+
+**What works end-to-end right now** (with the real OpenAI key + seeded DB):
+
+- Ingestion: upload a CSV or contract PDF at `/procurement/ingest` → real
+  OpenAI extraction → rows persist to `products` with the review/active
+  split.
+- Discovery: `/api/discover` (and the `/procurement/discover-test` page) →
+  real catalog → real OpenAI ranking → A-material redirect on blocked terms.
+
+**What's still missing for the full demo:**
+
+- **Foreman UI** (slice A — Phases 2/3): exists on the `dev-a` branch, **not
+  yet merged** to `main`.
+- **Procurement approval queue** (slice B — Phases 4/5): `dev-b` branch is
+  empty / not built.
+- No Vercel deployment yet — everything runs locally via `npm run dev`.
+
+Everything below describes how we got here and the team workflow.
+
 ## What "Step 0" got us
 
 Step 0 is the foundation commit that **Dev A** (cescod24) landed on `main`
@@ -20,7 +62,7 @@ before the three-way parallel work begins. After Step 0 the repo has:
   RLS policies written as if Supabase Auth were live. The demo bypasses RLS
   via the service-role key.
 - Typed stubs for every shared module the team will import on day one:
-  - `lib/anthropic.ts` — wrapped client with timeout + canned-fallback
+  - `lib/ai.ts` — wrapped OpenAI client with timeout + canned-fallback
     plumbing (the real prompts land per-phase)
   - `lib/rules.ts` — pure `decide(total, items, rules)` (the implementation
     is the three branches from plan.md §Phase 4; usable today)
@@ -38,14 +80,16 @@ before the three-way parallel work begins. After Step 0 the repo has:
 
 ## What Step 0 deliberately did NOT do
 
-- The Phase 1 **seed script** (`scripts/seed.ts`) is a stub. Filling it in is
-  Slice A's first task.
+- The Phase 1 **seed script** (`scripts/seed.ts`) was a stub at Step 0.
+  **Since done by slice C and run against the live DB** — see §Current state.
+  (Ownership note: the two planning docs disagreed on who owned the seed;
+  the team decided slice C's seed wins, and it's the one on `main`.)
 - No `.env.local` is committed (it can't be — secrets). Each dev creates
-  their own from `.env.example` before running `npm run seed`.
+  their own from `.env.example` using the values shared in the team chat.
 - No real foreman or procurement UI — only placeholders so the role switcher
   has somewhere to land.
-- No Anthropic prompts. The wrapper exists; phases 6 and 7 write the
-  prompts.
+- No AI prompts in Step 0. The wrapper exists; phases 6 and 7 write the
+  prompts (now landed on `main` — slice C).
 - shadcn/ui is initialised but only the default `Button` is installed.
   Phases add components on demand via `npx shadcn@latest add <name>`.
 
@@ -53,7 +97,7 @@ before the three-way parallel work begins. After Step 0 the repo has:
 
 | Slice | Owner | Phases | Surface |
 |-------|-------|--------|---------|
-| **A — Foreman flow** | Dev A | Phase 1 (seed) → Phase 2 (foreman home) → Phase 3 (status pills + Realtime) | `scripts/seed.ts`, `app/foreman/**`, `app/orders/**`, Realtime client |
+| **A — Foreman flow** | Dev A | Phase 2 (foreman home) → Phase 3 (status pills + Realtime) — _seed moved to slice C, already done_ | `app/foreman/**`, `app/orders/**`, Realtime client |
 | **B — Procurement flow** | Dev B | Phase 4 (rules engine + `POST /api/orders`) → Phase 5 (queue, decide, mock comstruct) | `app/api/orders/**`, `app/procurement/**` |
 | **C — Ingestion + discovery** | Dev C | Phase 6 (CSV/PDF ingest + review) → Phase 7 (task search + A-material redirect) | `app/api/ingest/**`, `app/api/discover/**`, `app/procurement/ingest/**`, `app/foreman/discover/**` |
 
@@ -83,23 +127,27 @@ If you touch any of these, message the other devs first:
 git pull
 npm install
 cp .env.example .env.local
-# fill in:
+# Paste the values from the team chat:
 #   NEXT_PUBLIC_SUPABASE_URL
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
 #   SUPABASE_SERVICE_ROLE_KEY   (server-only — never import into a client component)
-#   ANTHROPIC_API_KEY           (server-only — used via lib/anthropic.ts)
+#   OPENAI_API_KEY              (server-only — used via lib/ai.ts)
+#   OPENAI_MODEL                (optional — defaults to gpt-4o-mini)
 
-# Apply migrations to the shared Supabase Cloud project (no local Docker):
-# either
-npx supabase db push       # if you've linked the cloud project locally
-# or paste supabase/migrations/0001_init.sql into the Supabase dashboard
-#   SQL editor.
+npm run dev    # http://localhost:3000
 ```
 
-The shared Supabase project credentials live in the team chat, not in the
-repo. There is no local Docker Supabase — everyone develops against the
-same cloud project. Treat the data as shared; the seed script is
-idempotent (TRUNCATE then re-insert) once Phase 1's seed half is built.
+**You do NOT need to apply the migration or run the seed** — the shared
+Supabase Cloud project is already migrated and seeded (see §Current state).
+There is no local Docker Supabase; everyone develops against the same cloud
+project, so the data is shared.
+
+If you ever need to reset the shared catalog to a clean state (e.g. before a
+demo), `npm run seed` is idempotent — it wipes and re-inserts. Don't run it
+while a teammate is mid-demo. To apply a *new* migration, add a new file
+under `supabase/migrations/` and paste it into the dashboard SQL editor (or
+`npx supabase db push` if you've linked the project) — don't edit
+`0001_init.sql`.
 
 ## Daily commands
 
@@ -109,7 +157,7 @@ idempotent (TRUNCATE then re-insert) once Phase 1's seed half is built.
 | Typecheck | `npm run typecheck` |
 | Lint | `npm run lint` |
 | Build | `npm run build` |
-| Seed catalog (Phase 1+) | `npm run seed` |
+| Re-seed catalog (⚠ wipes & resets the shared DB) | `npm run seed` |
 | Add shadcn component | `npx shadcn@latest add <name>` |
 
 ## Phase ownership cheat-sheet
