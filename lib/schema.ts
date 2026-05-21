@@ -164,6 +164,54 @@ export const deliveryNoteExtractSchema = z.object({
 export type DeliveryNoteExtract = z.infer<typeof deliveryNoteExtractSchema>;
 
 // ---------------------------------------------------------------------------
+// Voice ordering (slice A) — POST /api/voice
+// ---------------------------------------------------------------------------
+// Browser captures audio with MediaRecorder, posts it as multipart/form-data.
+// Server transcribes (Whisper), runs the A-material blocklist on the
+// transcript, then asks the LLM for {supplier_sku, qty} pairs against the
+// project catalog. Route resolves SKU → product_id before responding so the
+// client just calls addToCart(product_id, qty) for each entry.
+
+export const aiVoiceItemSchema = z.object({
+  supplier_sku: z.string().min(1),
+  qty: z.number().int().positive().max(999),
+});
+
+export const aiVoiceResponseSchema = z.object({
+  items: z.array(aiVoiceItemSchema).max(8),
+});
+
+export const voiceItemSchema = z.object({
+  product_id: z.string().uuid(),
+  supplier_sku: z.string().min(1),
+  name: z.string().min(1),
+  unit: z.string().min(1),
+  qty: z.number().int().positive(),
+});
+
+export const voiceUnmatchedSchema = z.object({
+  name: z.string().min(1),
+  qty: z.number().int().positive(),
+});
+
+export const voiceResponseSchema = z.object({
+  transcript: z.string(),
+  items: z.array(voiceItemSchema).max(8),
+  unmatched: z.array(voiceUnmatchedSchema).max(8),
+  /** True when the route fell back to canned data (no key / no DB / timeout). */
+  canned: z.boolean().optional(),
+  /** Set when the transcript hit the A-material blocklist; client renders the friendly redirect. */
+  redirect: z.boolean().optional(),
+  message: z.string().optional(),
+});
+
+export type AiVoiceItem = z.infer<typeof aiVoiceItemSchema>;
+export type AiVoiceResponse = z.infer<typeof aiVoiceResponseSchema>;
+export type VoiceItem = z.infer<typeof voiceItemSchema>;
+export type VoiceUnmatched = z.infer<typeof voiceUnmatchedSchema>;
+export type VoiceResponse = z.infer<typeof voiceResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // Partial order decisions (migration 0004) — POST /api/orders/[id]/decide
 // ---------------------------------------------------------------------------
 // Procurement can decide each line independently. Either:

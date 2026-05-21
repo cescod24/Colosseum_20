@@ -89,6 +89,26 @@ export const copyDe: Copy = {
   "voice.stop": "Aufnahme stoppen",
   "voice.retry": "Erneut versuchen",
 
+  // Voice ordering on /foreman home (Slice A). Distinct from voice.start/stop
+  // above which serve Dev B's VoiceSearch on /foreman/discover.
+  "voice.order_button": "Per Sprache bestellen",
+  "voice.order_button_short": "Sprechen",
+  "voice.recording": "Aufnahme läuft — tippen zum Stoppen",
+  "voice.processing": "Wird verstanden …",
+  "voice.too_short": "Halt das Mikrofon kurz gedrückt.",
+  "voice.no_audio": "Nichts gehört, versuch es nochmal.",
+  "voice.no_match": "Nichts im Katalog gefunden — füg manuell hinzu.",
+  "voice.unmatched_hint": "Nicht im Katalog — manuell hinzufügen",
+  "voice.permission_denied":
+    "Mikrofon-Zugriff verweigert — in den Browser-Einstellungen erlauben.",
+  "voice.apply": "In den Warenkorb übernehmen",
+  "voice.discard": "Verwerfen",
+  "voice.transcript_label": "Du hast gesagt:",
+  "voice.blocked":
+    "Beton, Stahl und Bewehrung gehen über deinen Bauleiter — nicht über Site Order.",
+  "voice.error": "Konnte die Sprachaufnahme nicht verstehen. Erneut versuchen?",
+  "voice.canned_hint": "Beispiel-Bestellung (offline / ohne KI)",
+
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
 

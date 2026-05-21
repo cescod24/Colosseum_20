@@ -1247,3 +1247,135 @@ For a fresh chat continuing §11:
   needles (lib/server/demo-profile.ts).
 - Branch model: work on dev-b, fast-forward main at each commit.
 ```
+
+---
+
+## 12. Slice A — voice ordering on /foreman home (on `dev-a`, NOT merged)
+
+Parallel surface to §11.B's `VoiceSearch` on /foreman/discover. Two voice
+features in the build, two intents, two screens. Both ship.
+
+### 12.1 Status
+
+- Branch: `dev-a` → tip `943fe84`, six commits ahead of `main`.
+- Not merged to `main` per team policy ("merge when all slices are
+  done"). When ready: `git checkout main && git pull && git merge --no-ff
+  origin/dev-a -m "Merge dev-a → main: Slice A voice ordering"`.
+- `typecheck` / `lint` / `build` all green locally.
+
+### 12.2 Commit ladder (each independently green)
+
+```
+c1af139  feat(schema): voice request/response Zod schemas
+ccb9919  feat(ai): transcribeAudio() Whisper wrapper
+d76a60a  feat(canned): canned voice fallback under lib/canned/voice.ts
+f4c0f2d  feat(copy): voice.* German microcopy (foreman home)
+b4e87ae  feat(api): POST /api/voice — Whisper + extraction + A-material guard
+943fe84  feat(foreman): VoiceOrderButton FAB + result panel + wire in
+```
+
+### 12.3 Pipeline (file refs)
+
+```
+[Browser /foreman]                            app/foreman/_components/VoiceOrderButton.tsx
+  Tap mic FAB → MediaRecorder (audio/webm)
+  Tap again → stop → multipart POST /api/voice
+                ↓
+[Server]                                       app/api/voice/route.ts
+  1. Parse multipart, validate File (4 KB–10 MB)
+  2. transcribeAudio(file, lang="de", fallback=CANNED_VOICE_TRANSCRIPT)   lib/ai.ts
+  3. isABlockedTerm(transcript) → { redirect, message }                   lib/constants/blocklist.ts
+  4. maybeServerClient + loadCatalog + fallbackCatalog (INLINED from
+     app/api/discover/route.ts:60-147 to keep this slice self-contained)
+  5. callAI() with German extraction prompt →                             lib/ai.ts
+       AiVoiceResponse { items: [{ supplier_sku, qty }], ≤ 8 }            lib/schema.ts
+     Canned fallback: cannedVoiceFor(transcript)                          lib/canned/voice.ts
+  6. resolve(): SKU → product_id from catalog; orphans → unmatched
+  7. voiceResponseSchema.safeParse defence-in-depth
+                ↓
+[Browser]                                      app/foreman/_components/VoiceOrderButton.tsx
+  voiceResponseSchema.safeParse on the client too
+  Render <ResultPanel>: transcript + Stepper per matched item
+                                    + unmatched names with "/foreman/discover?task=…" link
+  "Übernehmen" → for each matched line, call addToCart(product_id, qty)
+                 (the existing ForemanHomeClient prop — same path used
+                 by the kit tiles + most-ordered grid)
+  "Verwerfen" → setState({ kind: "idle" })
+  Existing CartBar then submits via POST /api/orders as always
+```
+
+### 12.4 Files (what / where)
+
+| Path | Role |
+|---|---|
+| `app/api/voice/route.ts` | POST handler. NEW. |
+| `app/foreman/_components/VoiceOrderButton.tsx` | FAB + state machine + result panel. NEW. |
+| `lib/canned/voice.ts` | `CANNED_VOICE_TRANSCRIPT` + `cannedVoiceFor()`. NEW. |
+| `lib/ai.ts` | Added `transcribeAudio()` alongside `callAI`. `OPENAI_TRANSCRIBE_MODEL` env (default `whisper-1`). `AI_AUDIO_TIMEOUT_MS = 30_000` (separate from chat's 20 s). |
+| `lib/schema.ts` | Added `aiVoice*` + `voice*` Zod schemas (additive). |
+| `lib/constants/copy.de.ts` | Added `voice.order_button`, `.recording`, `.processing`, `.too_short`, `.no_audio`, `.no_match`, `.unmatched_hint`, `.permission_denied`, `.apply`, `.discard`, `.transcript_label`, `.blocked`, `.error`, `.canned_hint`, `.order_button_short`. Distinct from Dev B's `voice.start` / `voice.stop` / `voice.retry`. |
+| `app/foreman/_components/ForemanHomeClient.tsx` | One import + one JSX line (`<VoiceOrderButton addToCart=… projectId=… />`) + `projectId` prop threading. |
+| `app/foreman/page.tsx` | Pass `profile.project_id` as `projectId` prop. |
+
+### 12.5 Verification phrases (against seeded DB or no-DB fallback)
+
+| Phrase | Expected cart fill |
+|---|---|
+| "Ich brauche zehn Schrauben TX25 sechs mal achtzig." | `C003` × 10 |
+| "Zwei Rollen Panzertape silber und einen Bohrer acht Millimeter." | `C027` × 2, `C034` × 1 |
+| "Drei Tuben Silikon transparent und eine Flasche Reinigungsalkohol." | `C039` × 3, `C043` × 1 |
+| "Wir brauchen zehn Sack Beton." | A-material redirect (no second AI call) |
+
+### 12.6 Edge cases (already handled)
+
+| Case | Where | Behaviour |
+|---|---|---|
+| Mic permission denied | `getUserMedia` catch | `DeniedPanel` with help text |
+| Tap < 500 ms or blob < 4 KB | `onstop` early branch | `ErrorPanel` showing `voice.too_short` |
+| Empty transcript | `/api/voice` post-Whisper | `ErrorPanel` showing `voice.no_audio` |
+| GPT invents unknown SKU | `resolve()` | Surfaced in `unmatched` with manuell link |
+| A-material in transcript | server step 3 | `BlockedPanel` (amber), no second AI call |
+| `OPENAI_API_KEY` missing | `transcribeAudio` + `callAI` fallbacks | `CANNED_VOICE_TRANSCRIPT` → cannedVoiceFor → demo still works |
+| Network failure | client fetch catch | `ErrorPanel` showing `voice.error` |
+
+### 12.7 Out of scope (do NOT re-propose)
+
+- Multi-turn voice ("davon doch nur fünf")
+- Auto-submit (the existing CartBar is the single confirm point)
+- Language detection beyond German
+- Voice clip persistence anywhere
+- Streaming transcription
+- Voice on /foreman/discover (Dev B's surface — §11.B)
+- Free-text quick-add box (separate feature)
+- Photo-of-shelf reordering (separate feature)
+- Polier-side dashboard (separate feature)
+
+### 12.8 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §12:
+- Slice A voice ordering lives on dev-a (tip 943fe84). NOT merged
+  to main per team policy. Six commits, see §12.2.
+- It coexists with Dev B's VoiceSearch (§11.B / 5430dd1 on main).
+  Mine: server-side Whisper on /foreman home (cart fill).
+  Theirs: Web Speech API on /foreman/discover (search input).
+  Both ship, both demo.
+- Files I touch: app/api/voice/route.ts (new),
+  app/foreman/_components/VoiceOrderButton.tsx (new),
+  lib/canned/voice.ts (new), lib/ai.ts (added transcribeAudio),
+  lib/schema.ts (added voice schemas), lib/constants/copy.de.ts
+  (added voice.order_button etc), app/foreman/page.tsx +
+  ForemanHomeClient.tsx (one-line wire-up + projectId threading).
+- Slice B files (app/api/orders/**, app/procurement/**,
+  lib/rules.ts, copy.en.ts) — untouched.
+- Slice C files (scripts/seed.ts, app/api/ingest/**,
+  app/api/discover/**, lib/constants/{blocklist,categories,chips}.ts)
+  — untouched. lib/canned/voice.ts is new under Dev C's convention;
+  flagged as additive.
+- No new migration. Voice clips never persisted.
+- Verification phrases in §12.5. A-material guard verified by
+  saying "zehn Sack Beton" — server should short-circuit before
+  the second callAI.
+- When the team's ready to integrate, fast-forward dev-a into main
+  (no conflicts expected — additive surface only).
+```

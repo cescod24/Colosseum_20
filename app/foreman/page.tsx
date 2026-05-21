@@ -58,6 +58,7 @@ export default async function ForemanHome() {
         lastOrder={lastOrder}
         sets={sets}
         mostOrdered={mostOrdered}
+        projectId={profile.project_id}
       />
     </>
   );
