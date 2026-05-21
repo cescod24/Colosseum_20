@@ -1383,3 +1383,145 @@ For a fresh chat continuing §12:
 - When the team's ready to integrate, fast-forward dev-a into main
   (no conflicts expected — additive surface only).
 ```
+
+---
+
+## 13. Slice A v2 — Conversational assistant + BottomNavBar (MERGED `81073e6`)
+
+Replaces the §12 floating mic FAB. The user asked for "an actual AI, not
+just voice-to-text" plus a "menu bar at the bottom with cart, previous
+orders logo and so on, in the center a bigger AI button." Both shipped
+together in this slice.
+
+### 13.1 Status
+
+- **Merged to `main`** (2026-05-22 session, commit `81073e6`).
+- Coexists with Dev B's `VoiceSearch.tsx` (§11.B) on `/foreman/discover`
+  — still active for in-search voice queries. Two voice surfaces, two
+  intents: theirs fills the search input via Web Speech; mine is the
+  full conversation via server Whisper + chat completion.
+- `typecheck` / `lint` / `build` green post-merge.
+
+### 13.2 What's new
+
+**Backend** (extends `/api/voice` — same URL, richer contract):
+- Accepts EITHER multipart audio OR JSON `{ text, history?, project_id?, cart? }`.
+- System prompt now includes: catalog (first 80 rows with prices +
+  hazardous flag), current cart, approval threshold (200 CHF), A-material
+  blocklist hint. Up to 4 prior turns of conversation context.
+- Returns `AssistantResponse`:
+  - `transcript` (what the user said / typed)
+  - `reply` (German conversational reply, ≤ 600 chars)
+  - `intent`: `order | suggest | ask | clarify | remove | none`
+  - `items` (server-resolved supplier_sku → product_id + name + unit + qty)
+  - `alternatives` (cross-sell suggestions, same shape)
+  - `removals` (SKUs to remove from cart if intent=remove)
+  - `unmatched` (SKUs the model invented that aren't in catalog)
+  - `follow_up` (assistant's clarifying question, nullable)
+  - `canned`, `redirect`, `message` (preserved from §12 shape)
+- A-material blocklist runs BEFORE the LLM call (same discipline as
+  `/api/discover` — fires on "Beton", "Stahl" etc. and returns the
+  Bauleiter redirect message).
+- Canned fallback `cannedAssistantFor(transcript)` covers 5 rehearsed
+  intents (Schrauben, PSA, Silikon, Werkzeug, Budget-Frage) — each
+  returns a conversational German reply + items + alternatives + an
+  optional follow-up question.
+
+**Frontend** (new files in `app/foreman/_components/`):
+- `BottomNavBar.tsx` — fixed bottom nav across every foreman page.
+  Five items: Home / Cart (count badge) / **gradient AI button (center,
+  taller)** / Orders / Discover. Active item highlights.
+- `CartSheet.tsx` — bottom drawer; opens from the cart icon; shows cart
+  lines with Stepper, total, queued/error states, and the existing
+  "Bestellung senden · X CHF" button (submit still goes through Dev B's
+  POST `/api/orders` unchanged).
+- `AssistantSheet.tsx` — full-screen modal (mobile) with chat history,
+  recording controls AND a typing input. Each assistant turn can render
+  Suggestions (items), Alternatives, and Removal hints — each with
+  one-tap "Übernehmen" that calls `addToCart` / `removeFromCart` from
+  the parent page. Multi-turn (last 4 turns sent back as context).
+- Wired into `ForemanHomeClient`, `DiscoverClient`, `OrdersListClient`.
+- URL-param hand-off: `/foreman?ai=1` auto-opens the assistant sheet,
+  `/foreman?cart=1` auto-opens the cart sheet (used by the orders page
+  nav-bar taps).
+
+**Removed** (replaced by the redesign):
+- `app/foreman/_components/CartBar.tsx`
+- `app/foreman/_components/VoiceOrderButton.tsx`
+
+**Schema additions** (`lib/schema.ts`, all additive):
+- `aiAssistantItemSchema`, `aiAssistantReplySchema` — model output
+- `assistantItemSchema`, `assistantTurnSchema`, `assistantResponseSchema`
+  — client-facing
+- Voice schemas from §12 kept as deprecated legacy; nothing imports them
+  from the new components.
+
+**Copy additions** (`lib/constants/copy.de.ts`, all additive):
+- `assistant.*` — title, subtitle, placeholder, buttons, labels, error
+  states, empty intro.
+- `nav.cart`, `nav.ai`, `nav.discover` (the existing `nav.home` and
+  `nav.orders` are reused).
+- `cart_sheet.*` — title, empty, line_remove, close.
+- Existing `voice.*` keys preserved; Dev B's
+  `voice.start/stop/retry` on `/foreman/discover` are untouched.
+
+### 13.3 Verification (run against live OpenAI)
+
+| Input | Expected | Verified |
+|---|---|---|
+| Text POST: "Ich brauche zehn Schrauben TX25 sechs mal achtzig" | reply contains "10 Schrauben TX25", intent=order, items has C003×10, canned=false | ✓ (during this session) |
+| Text POST: "Wir brauchen zehn Sack Beton" | redirect=true, reply mentions Bauleiter, no extraction | ✓ |
+| Audio POST: rehearsed phrase | Whisper transcribes → assistant reply + items | (needs browser test) |
+| Tap home → cart icon → drawer opens with current cart + "Bestellung senden" | drawer shows, submit calls POST /api/orders | (needs browser test) |
+| Tap home → AI button → AssistantSheet → speak / type → reply renders | sheet opens, assistant turn appears with bubbles | (needs browser test) |
+| AssistantSheet "Übernehmen" → cart badge bumps in nav | cart count badge updates | (needs browser test) |
+
+### 13.4 Dev-server gotcha (avoid repeating)
+
+If the foreman page looks "old" in Firefox/Safari while VS Code's browser
+shows the new code: zombie dev servers. Fix:
+```
+pkill -9 -f "next dev" ; pkill -9 -f "next-server"
+rm -rf .next
+npm run dev -- --hostname 0.0.0.0 --port 3000
+```
+Always bind `--hostname 0.0.0.0` so IPv4 and IPv6 resolve to the same
+process. Never use `lsof -ti :3000 | xargs kill` alone — it doesn't kill
+parent / sibling next-dev processes.
+
+### 13.5 Out of scope (do NOT re-propose)
+
+- TTS (assistant speaks back) — text replies only.
+- Streaming Whisper — clip is short enough.
+- Server-side cart persistence — cart still lives only in localStorage
+  on the client; assistant accepts it as context but never writes to DB.
+- Cross-page cart sheet on /foreman/orders — that page routes to
+  /foreman?cart=1 instead (URL hand-off keeps state owned by one page).
+- Language detection — German only.
+- Persisted conversation history — last 4 turns held in component
+  state; navigating away clears it. Intentional.
+- Voice on /foreman/discover (Dev B's territory — §11.B).
+
+### 13.6 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §13:
+- Slice A v2 is MERGED to main (81073e6). The conversational
+  assistant fully replaces the §12 voice FAB.
+- Two voice surfaces in production: my AssistantSheet on every
+  foreman page (server Whisper + chat) and Dev B's VoiceSearch on
+  /foreman/discover (Web Speech). Both ship.
+- BottomNavBar is the bottom of every foreman page. CartSheet replaces
+  the old sticky CartBar. AssistantSheet replaces VoiceOrderButton.
+  The old CartBar.tsx and VoiceOrderButton.tsx are deleted.
+- /api/voice now answers either multipart audio OR JSON text. Response
+  is AssistantResponse (see lib/schema.ts). Multi-turn via `history`.
+- Cookie→profile lookup still ILIKE in lib/server/demo-profile.ts on
+  needles Polier A / Polier B / Bauleitung.
+- Dev-server: always launch with `--hostname 0.0.0.0 --port 3000`
+  after `pkill -9 -f "next dev"` to avoid the IPv4/IPv6 zombie split
+  that fooled Firefox/Safari into showing stale code.
+- Slice B (procurement, /api/orders/**, decisions, dashboard) and
+  Slice C (ingest, discover backend, seed) — untouched.
+- New OPENAI calls happen via existing lib/ai.ts (callAI + transcribeAudio).
+```
