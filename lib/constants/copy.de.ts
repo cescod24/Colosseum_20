@@ -51,6 +51,24 @@ export const copyDe: Copy = {
 
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
+
+  "discover.title": "Material per Aufgabe finden",
+  "discover.subtitle": "Beschreibe die Aufgabe — wir schlagen Material vor.",
+  "discover.search_placeholder": "z.B. Fenster abdichten",
+  "discover.search_submit": "Suchen",
+  "discover.categories": "Kategorien",
+  "discover.results": "Vorschläge",
+  "discover.empty": "Nichts gefunden — probier eine Kategorie.",
+  "discover.searching": "Suche …",
+  "discover.blocked.title": "Das geht über den Bauleiter",
+  "discover.blocked.body":
+    "Beton, Stahl, Bewehrung und Schalung bestellst du nicht hier. Sprich kurz mit deinem Bauleiter — er hat die Rahmenverträge.",
+  "discover.blocked.back": "Zurück zu den Kategorien",
+  "discover.add_to_cart": "In den Warenkorb",
+  "discover.added": "Hinzugefügt",
+  "discover.canned_hint": "Beispiel-Vorschlag (offline / ohne KI)",
+  "discover.no_project":
+    "Kein aktives Projekt gefunden — bitte gib zuerst eine Rolle frei.",
 };
 
 export function formatCopy(template: string, vars: Record<string, string | number>): string {

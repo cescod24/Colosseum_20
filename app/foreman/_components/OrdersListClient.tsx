@@ -93,12 +93,19 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
     };
   }, [profileId]);
 
-  // 5 s polling fallback. Cheap GET, results merged client-side.
+  // 5 s polling fallback. Owned by Dev B (`api/orders/**`); until it lands
+  // we 404 gracefully and rely on Realtime alone.
   useEffect(() => {
     let cancelled = false;
+    let endpointMissing = false;
     const fetchOnce = async () => {
+      if (endpointMissing) return;
       try {
         const res = await fetch("/api/orders/list", { cache: "no-store" });
+        if (res.status === 404) {
+          endpointMissing = true;
+          return;
+        }
         if (!res.ok) return;
         const body = (await res.json()) as { orders: OrderSummary[] };
         if (cancelled) return;

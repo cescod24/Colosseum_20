@@ -47,20 +47,24 @@ export type MostOrderedRow = {
   total_qty: number;
 };
 
-const DEMO_ROLE_TO_DISPLAY: Record<DemoRole, string> = {
-  "foreman-a": "Polier A — Hochbau / PPE",
-  "foreman-b": "Polier B — Werkzeug / Befestigung",
-  procurement: "Procurement / Bauleiter",
+// Demo seed (Dev C) creates display names like "Polier A (Hochbau / PPE)" /
+// "Polier B (Werkzeug / Befestigung)" / "Bauleitung Zürich-West". We match
+// by substring on display_name so the foreman/procurement role cookies still
+// resolve even if the seed author tweaks the labels.
+const DEMO_ROLE_TO_DISPLAY_NEEDLE: Record<DemoRole, string> = {
+  "foreman-a": "Polier A",
+  "foreman-b": "Polier B",
+  procurement: "Bauleitung",
 };
 
 /** Resolve the demo-cookie role to a seeded profile row. */
 export async function loadProfileForRole(role: DemoRole): Promise<Profile | null> {
   const supabase = getServerClient();
-  const target = DEMO_ROLE_TO_DISPLAY[role];
+  const needle = DEMO_ROLE_TO_DISPLAY_NEEDLE[role];
   const { data, error } = await supabase
     .from("profiles")
     .select("id, role, display_name, project_id")
-    .eq("display_name", target)
+    .ilike("display_name", `%${needle}%`)
     .maybeSingle();
   if (error) {
     console.error("[foreman.loadProfileForRole]", error);

@@ -1,29 +1,32 @@
 /**
- * scripts/seed.ts — idempotent seed for the Site Order demo.
+ * scripts/seed.ts — idempotent seed for the Site Order demo (Phase 1 data half).
  *
- * Run with: `npm run seed` (uses tsx + the service-role key from .env.local).
+ * Reads `data/sample.csv`, drops any A-material row via the blocklist,
+ * normalises the surviving rows into the `products` schema and writes them
+ * to the linked Supabase project together with:
+ *   - one project ("Baustelle Zürich-West")
+ *   - one approval_rules row (threshold 200 CHF, restricted_groups=['paint'])
+ *   - three profiles (foreman A, foreman B, procurement)
+ *   - three material_sets (PPE, Trockenbau, Werkzeug) with items
+ *   - 8–12 orders per foreman, trade-skewed, including one sub-threshold
+ *     hazardous fixture for the restricted-group rule to fire on
  *
- * Strategy:
- *   * Delete every table in reverse FK order, then re-insert. Cheaper than
- *     a real TRUNCATE via RPC, and works against Supabase Cloud without
- *     extra functions.
- *   * Suppliers live in the CSV (Würth, Fischer, …). ACME is NOT seeded —
- *     it is onboarded live in Phase 6 by uploading the contract PDF.
- *   * Three pre-baked material_sets per the plan.
- *   * 8–12 orders per foreman over the last ~28 days, with one sub-threshold
- *     hazardous order so the restricted-group rule has a fixture.
+ * ACME is NOT seeded — it's onboarded live in Phase 6 by uploading
+ * `data/fake_contract_products_with_logo.pdf` (see plan.md §2).
+ *
+ * Run with: `npm run seed`. Re-running drops everything first, so the
+ * outcome is deterministic.
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import Papa from "papaparse";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
+import { resolve } from "node:path";
+import Papa from "papaparse";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { categoryFor } from "../lib/constants/categories";
 import { isABlockedTerm } from "../lib/constants/blocklist";
-import { productGroupFor } from "../lib/constants/categories";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — mirror the CSV columns exactly
 // ---------------------------------------------------------------------------
 
 type CsvRow = {
@@ -39,79 +42,79 @@ type CsvRow = {
   typische_baustelle: string;
 };
 
-type SupplierRow = { id: string; name: string };
-type ProductRow = {
-  id: string;
-  supplier_id: string;
-  supplier_sku: string;
-  name: string;
-  product_group: string;
-  trade: string;
-  unit: string;
-  unit_price: number;
-  currency: "CHF";
-  hazardous: boolean;
-  status: "active";
-};
+// ---------------------------------------------------------------------------
+// Env + client
+// ---------------------------------------------------------------------------
 
-const PROJECT_NAME = "Baustelle Zürich-West";
-const AUTO_APPROVE_THRESHOLD = 200;
-const TRADE_FOREMAN_A = "Hochbau";
-const TRADE_FOREMAN_B = "Stahlbau";
+function getClient(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
+    );
+  }
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function envOrDie(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`[seed] Missing ${name} in .env.local`);
-    process.exit(1);
+const NULL_UUID = "00000000-0000-0000-0000-000000000000";
+
+async function wipe(db: SupabaseClient) {
+  // Reverse dependency order so FK cascade is not relied on. Each table is
+  // emptied with a `not("id", "is", null)` filter — Supabase requires a
+  // filter on .delete() for safety.
+  const tables = [
+    "mock_comstruct_orders",
+    "order_items",
+    "orders",
+    "material_set_items",
+    "material_sets",
+    "approval_rules",
+    "project_products",
+    "profiles",
+    "products",
+    "suppliers",
+    "projects",
+  ];
+  for (const t of tables) {
+    const { error } =
+      t === "project_products" || t === "material_set_items"
+        ? await db
+            .from(t)
+            .delete()
+            .neq("project_id", NULL_UUID) // composite-PK tables: filter by one component
+        : await db.from(t).delete().not("id", "is", null);
+    if (error) throw new Error(`wipe ${t}: ${error.message}`);
   }
-  return v;
 }
 
-async function deleteAll(supabase: SupabaseClient, table: string) {
-  // Supabase JS requires a filter on delete; use a tautology.
-  const { error } = await supabase
-    .from(table)
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-  if (error) throw new Error(`Failed to clear ${table}: ${error.message}`);
-}
-
-async function deleteAllByPair(
-  supabase: SupabaseClient,
-  table: string,
-  col: string,
-) {
-  // Junction tables without `id` use a real column for the tautology.
-  const { error } = await supabase
-    .from(table)
-    .delete()
-    .neq(col, "00000000-0000-0000-0000-000000000000");
-  if (error) throw new Error(`Failed to clear ${table}: ${error.message}`);
-}
-
-function daysAgo(d: number, hour: number, minute: number): string {
-  const t = new Date();
-  t.setDate(t.getDate() - d);
-  t.setHours(hour, minute, 0, 0);
-  return t.toISOString();
-}
-
-function readCsv(): CsvRow[] {
-  const path = join(process.cwd(), "data", "sample.csv");
-  const text = readFileSync(path, "utf8");
-  const parsed = Papa.parse<CsvRow>(text, {
-    header: true,
-    skipEmptyLines: true,
-  });
-  if (parsed.errors.length) {
-    console.warn("[seed] CSV parse warnings:", parsed.errors.slice(0, 3));
+function chooseN<T>(arr: T[], n: number, rng: () => number): T[] {
+  const copy = [...arr];
+  const out: T[] = [];
+  for (let i = 0; i < n && copy.length; i++) {
+    const idx = Math.floor(rng() * copy.length);
+    out.push(copy.splice(idx, 1)[0]);
   }
-  return parsed.data.filter((r) => r.artikel_id && r.artikelname);
+  return out;
+}
+
+function rngFromSeed(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+function isoDaysAgo(d: number) {
+  const t = Date.now() - d * 86_400_000;
+  return new Date(t).toISOString();
 }
 
 // ---------------------------------------------------------------------------
@@ -119,491 +122,282 @@ function readCsv(): CsvRow[] {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const url = envOrDie("NEXT_PUBLIC_SUPABASE_URL");
-  const serviceKey = envOrDie("SUPABASE_SERVICE_ROLE_KEY");
-  const supabase = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  const csvPath = resolve(process.cwd(), "data/sample.csv");
+  const text = readFileSync(csvPath, "utf8");
+  const parsed = Papa.parse<CsvRow>(text, {
+    header: true,
+    skipEmptyLines: true,
   });
-
-  console.log("[seed] target:", url);
-
-  // --- clear in reverse FK order
-  console.log("[seed] clearing existing rows …");
-  await deleteAll(supabase, "mock_comstruct_orders");
-  await deleteAll(supabase, "order_items");
-  await deleteAll(supabase, "orders");
-  await deleteAllByPair(supabase, "material_set_items", "set_id");
-  await deleteAll(supabase, "material_sets");
-  await deleteAllByPair(supabase, "project_products", "project_id");
-  await deleteAll(supabase, "approval_rules");
-  await deleteAll(supabase, "products");
-  await deleteAll(supabase, "profiles");
-  await deleteAll(supabase, "suppliers");
-  await deleteAll(supabase, "projects");
-
-  // --- read + filter CSV
-  const csv = readCsv();
-  const blocked = csv.filter((r) => isABlockedTerm(r.artikelname));
-  if (blocked.length) {
-    console.warn(
-      `[seed] skipping ${blocked.length} A-material row(s) from CSV:`,
-      blocked.map((r) => r.artikelname).slice(0, 5),
-    );
+  if (parsed.errors.length) {
+    console.warn("[seed] CSV parse warnings:", parsed.errors.slice(0, 3));
   }
-  const safe = csv.filter((r) => !isABlockedTerm(r.artikelname));
 
-  // --- project
-  console.log("[seed] inserting project …");
-  const { data: project, error: projErr } = await supabase
+  const rows = parsed.data
+    .filter((r) => r.artikel_id && r.artikelname)
+    .filter((r) => {
+      if (isABlockedTerm(`${r.artikelname} ${r.kategorie}`)) {
+        console.warn("[seed] blocked A-material row:", r.artikel_id, r.artikelname);
+        return false;
+      }
+      return true;
+    });
+
+  console.log(`[seed] CSV: ${parsed.data.length} → ${rows.length} after blocklist`);
+
+  const db = getClient();
+  await wipe(db);
+
+  // -- project --------------------------------------------------------------
+  const { data: projectRow, error: projectErr } = await db
     .from("projects")
     .insert({
-      name: PROJECT_NAME,
+      name: "Baustelle Zürich-West",
       currency: "CHF",
-      auto_approve_threshold: AUTO_APPROVE_THRESHOLD,
+      auto_approve_threshold: 200,
     })
     .select("id")
     .single();
-  if (projErr || !project) throw projErr ?? new Error("no project");
-  const projectId = project.id as string;
+  if (projectErr || !projectRow) throw projectErr ?? new Error("no project row");
+  const projectId = projectRow.id as string;
 
-  // --- suppliers (one per distinct `lieferant`; NO ACME)
-  const supplierNames = Array.from(
-    new Set(safe.map((r) => r.lieferant.trim()).filter(Boolean)),
-  ).filter((n) => n.toLowerCase() !== "acme");
-  console.log(`[seed] inserting ${supplierNames.length} suppliers …`);
-  const { data: supplierRows, error: supErr } = await supabase
-    .from("suppliers")
-    .insert(supplierNames.map((name) => ({ name })))
-    .select("id, name");
-  if (supErr || !supplierRows) throw supErr ?? new Error("no suppliers");
-  const supplierByName = new Map<string, SupplierRow>(
-    supplierRows.map((s) => [s.name, s as SupplierRow]),
-  );
-
-  // --- products
-  const productPayload = safe.map((r) => {
-    const supplier = supplierByName.get(r.lieferant.trim());
-    if (!supplier) {
-      throw new Error(`Unknown supplier for ${r.artikel_id}: ${r.lieferant}`);
-    }
-    const price = Number(r.preis_eur);
-    if (!Number.isFinite(price) || price <= 0) {
-      throw new Error(`Bad price for ${r.artikel_id}: ${r.preis_eur}`);
-    }
-    return {
-      supplier_id: supplier.id,
-      supplier_sku: r.artikel_id,
-      name: r.artikelname,
-      product_group: productGroupFor(r.kategorie),
-      trade: r.typische_baustelle || null,
-      unit: r.einheit,
-      // EUR → CHF: contract states everything CHF; CSV mislabels but is
-      // representative — accept 1:1 for the demo (plan §2 currency lock).
-      unit_price: price,
-      currency: "CHF" as const,
-      hazardous: r.gefahrgut?.toLowerCase() === "true",
-      status: "active" as const,
-    };
-  });
-  console.log(`[seed] inserting ${productPayload.length} products …`);
-  const { data: productRows, error: prodErr } = await supabase
-    .from("products")
-    .insert(productPayload)
-    .select(
-      "id, supplier_sku, name, unit, unit_price, hazardous, product_group, trade",
-    );
-  if (prodErr || !productRows) throw prodErr ?? new Error("no products");
-  const productBySku = new Map<string, ProductRow & { trade: string | null }>(
-    productRows.map((p) => [p.supplier_sku, p as ProductRow & { trade: string | null }]),
-  );
-
-  // --- project_products: link every product to the one project
-  console.log("[seed] linking project_products …");
-  const linkPayload = productRows.map((p) => ({
+  // -- approval rules -------------------------------------------------------
+  // Restricted groups uses the canonical category keys from
+  // lib/constants/categories.ts. Hazardous gefahrgut=true items in the
+  // 'paint' group trip the rule alongside any item where hazardous=true.
+  const { error: ruleErr } = await db.from("approval_rules").insert({
     project_id: projectId,
-    product_id: p.id,
-  }));
-  const { error: linkErr } = await supabase.from("project_products").insert(linkPayload);
-  if (linkErr) throw linkErr;
-
-  // --- approval_rules
-  console.log("[seed] inserting approval_rules …");
-  const { error: rulesErr } = await supabase.from("approval_rules").insert({
-    project_id: projectId,
-    threshold: AUTO_APPROVE_THRESHOLD,
-    // Hazardous flag is the dominant signal, but the rule engine also reads
-    // restricted_groups — seed it with the German group name so the engine
-    // matches against product_group when we add non-haz restricted groups.
-    restricted_groups: ["Farbe"],
+    threshold: 200,
+    restricted_groups: ["paint"],
     restricted_suppliers: [],
   });
-  if (rulesErr) throw rulesErr;
+  if (ruleErr) throw ruleErr;
 
-  // --- profiles
-  console.log("[seed] inserting profiles …");
-  const { data: profiles, error: profErr } = await supabase
+  // -- profiles -------------------------------------------------------------
+  const { data: profileRows, error: profileErr } = await db
     .from("profiles")
     .insert([
       {
         role: "foreman",
-        display_name: "Polier A — Hochbau / PPE",
+        display_name: "Polier A (Hochbau / PPE)",
         project_id: projectId,
       },
       {
         role: "foreman",
-        display_name: "Polier B — Werkzeug / Befestigung",
+        display_name: "Polier B (Werkzeug / Befestigung)",
         project_id: projectId,
       },
       {
         role: "procurement",
-        display_name: "Procurement / Bauleiter",
+        display_name: "Bauleitung Zürich-West",
         project_id: projectId,
       },
     ])
-    .select("id, role, display_name");
-  if (profErr || !profiles) throw profErr ?? new Error("no profiles");
-  const foremanA = profiles[0];
-  const foremanB = profiles[1];
+    .select("id, display_name, role");
+  if (profileErr || !profileRows) throw profileErr ?? new Error("no profile rows");
+  const foremanA = profileRows.find((p) => p.display_name.includes("Polier A"))!;
+  const foremanB = profileRows.find((p) => p.display_name.includes("Polier B"))!;
 
-  // --- material_sets + items
-  console.log("[seed] inserting material sets …");
-  const kitDefs: Array<{ name: string; skus: Array<[string, number]> }> = [
+  // -- suppliers ------------------------------------------------------------
+  const supplierNames = Array.from(new Set(rows.map((r) => r.lieferant.trim())))
+    .filter((s) => s.length > 0)
+    .filter((s) => s.toUpperCase() !== "ACME");
+  const { data: supplierRows, error: supplierErr } = await db
+    .from("suppliers")
+    .insert(supplierNames.map((name) => ({ name })))
+    .select("id, name");
+  if (supplierErr || !supplierRows) throw supplierErr ?? new Error("no supplier rows");
+  const supplierByName: Record<string, string> = {};
+  for (const s of supplierRows) supplierByName[s.name as string] = s.id as string;
+
+  // -- products -------------------------------------------------------------
+  type ProductInsert = {
+    supplier_id: string;
+    supplier_sku: string;
+    name: string;
+    product_group: string;
+    trade: string | null;
+    unit: string;
+    unit_price: number;
+    currency: string;
+    hazardous: boolean;
+    status: "active";
+    confidence: number;
+  };
+  const productInserts: ProductInsert[] = rows
+    .filter((r) => supplierByName[r.lieferant.trim()])
+    .map((r) => ({
+      supplier_id: supplierByName[r.lieferant.trim()],
+      supplier_sku: r.artikel_id,
+      name: r.artikelname,
+      product_group: categoryFor(r.kategorie),
+      trade: r.typische_baustelle || null,
+      unit: r.einheit,
+      unit_price: Number(r.preis_eur),
+      currency: "CHF",
+      hazardous: r.gefahrgut === "true",
+      status: "active",
+      confidence: 1,
+    }));
+  const { data: productRows, error: productErr } = await db
+    .from("products")
+    .insert(productInserts)
+    .select("id, supplier_sku, product_group, hazardous, unit, unit_price");
+  if (productErr || !productRows) throw productErr ?? new Error("no product rows");
+  const productBySku: Record<string, (typeof productRows)[number]> = {};
+  for (const p of productRows) productBySku[p.supplier_sku as string] = p;
+
+  // -- project_products -----------------------------------------------------
+  await db.from("project_products").insert(
+    productRows.map((p) => ({ project_id: projectId, product_id: p.id })),
+  );
+
+  // -- material_sets --------------------------------------------------------
+  const kits = [
     {
       name: "PPE-Set neuer Mitarbeiter",
-      skus: [
-        ["C073", 1], // Bauhelm weiß
-        ["C022", 2], // Gehörschutzstöpsel
-        ["C019", 2], // Arbeitshandschuhe Gr.9
-        ["C024", 1], // Warnweste orange
-        ["C021", 1], // Schutzbrille klar
-      ],
+      skus: ["C073", "C022", "C019", "C024", "C021"],
+      qty: [1, 2, 1, 1, 1],
     },
     {
       name: "Trockenbau-Set 50 m²",
-      skus: [
-        ["C003", 200], // Schraube TX25 6x80
-        ["C005", 50], // Dübel 8mm
-        ["C027", 2], // Panzertape silber
-        ["C062", 2], // Spachtel 50mm
-        ["C091", 100], // Abstandskeile
-        ["C040", 4], // Silikon weiß
-      ],
+      skus: ["C003", "C005", "C032", "C033", "C027", "C036"],
+      qty: [200, 100, 5, 5, 2, 10],
     },
     {
       name: "Werkzeug-Grundausstattung",
-      skus: [
-        ["C047", 2], // Zollstock
-        ["C048", 10], // Bleistift Baustelle
-        ["C032", 4], // Bit TX20
-        ["C033", 4], // Bit TX25
-        ["C046", 1], // Wasserwaage 60cm
-        ["C094", 1], // Gummihammer
-      ],
+      skus: ["C034", "C035", "C032", "C033", "C047", "C048"],
+      qty: [3, 2, 10, 10, 2, 5],
     },
   ];
-  for (const kit of kitDefs) {
-    const { data: setRow, error: setErr } = await supabase
+  for (const kit of kits) {
+    const { data: setRow } = await db
       .from("material_sets")
       .insert({ project_id: projectId, name: kit.name })
       .select("id")
       .single();
-    if (setErr || !setRow) throw setErr ?? new Error("no material_set");
+    if (!setRow) continue;
     const items = kit.skus
-      .map(([sku, qty]) => {
-        const p = productBySku.get(sku);
-        if (!p) {
-          console.warn(`[seed] kit "${kit.name}" missing sku ${sku}`);
-          return null;
-        }
-        return { set_id: setRow.id, product_id: p.id, default_qty: qty };
-      })
-      .filter((x): x is { set_id: string; product_id: string; default_qty: number } => x !== null);
-    if (items.length) {
-      const { error: itemsErr } = await supabase.from("material_set_items").insert(items);
-      if (itemsErr) throw itemsErr;
-    }
+      .map((sku, i) => ({
+        set_id: setRow.id as string,
+        product_id: productBySku[sku]?.id,
+        default_qty: kit.qty[i],
+      }))
+      .filter((it) => it.product_id);
+    if (items.length) await db.from("material_set_items").insert(items);
   }
 
-  // --- orders: 8–12 per foreman across last ~28 days
-  console.log("[seed] inserting historical orders …");
+  // -- orders ---------------------------------------------------------------
+  // Foreman A is PPE/consumables-heavy; foreman B is tools/fasteners-heavy.
+  const groupsA = new Set([
+    "ppe",
+    "cleaning_chemicals",
+    "covers_tape",
+    "misc",
+    "sealants",
+  ]);
+  const groupsB = new Set(["tools", "fasteners", "electrical"]);
+  const productsA = productRows.filter((p) => groupsA.has(p.product_group as string));
+  const productsB = productRows.filter((p) => groupsB.has(p.product_group as string));
 
-  type LineSpec = { sku: string; qty: number };
-  type OrderSpec = {
-    foreman: { id: string };
-    day: number; // days ago
-    hour: number;
-    minute: number;
-    lines: LineSpec[];
-    forceStatus?: "approved" | "ordered" | "delivered";
+  type OrderPlan = {
+    profile_id: string;
+    daysAgo: number;
+    items: { product_id: string; qty: number; unit_price: number }[];
+    status: "delivered" | "approved" | "ordered";
   };
 
-  // Foreman A — PPE / consumables-heavy
-  const aOrders: OrderSpec[] = [
-    {
-      foreman: foremanA,
-      day: 26,
-      hour: 7,
-      minute: 30,
-      lines: [
-        { sku: "C019", qty: 4 },
-        { sku: "C022", qty: 4 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 24,
-      hour: 10,
-      minute: 5,
-      lines: [
-        { sku: "C023", qty: 10 },
-        { sku: "C097", qty: 20 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 21,
-      hour: 8,
-      minute: 15,
-      lines: [
-        { sku: "C055", qty: 2 },
-        { sku: "C099", qty: 50 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 18,
-      hour: 12,
-      minute: 0,
-      lines: [
-        { sku: "C021", qty: 3 },
-        { sku: "C098", qty: 20 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 14,
-      hour: 9,
-      minute: 30,
-      lines: [
-        { sku: "C027", qty: 4 },
-        { sku: "C015", qty: 6 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 11,
-      hour: 7,
-      minute: 45,
-      lines: [
-        { sku: "C073", qty: 2 },
-        { sku: "C075", qty: 2 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 8,
-      hour: 13,
-      minute: 0,
-      lines: [
-        { sku: "C019", qty: 6 },
-        { sku: "C022", qty: 8 },
-        { sku: "C098", qty: 30 },
-      ],
-    },
-    {
-      foreman: foremanA,
-      day: 5,
-      hour: 8,
-      minute: 0,
-      lines: [
-        { sku: "C055", qty: 1 },
-        { sku: "C089", qty: 1 },
-        { sku: "C051", qty: 1 },
-      ],
-    },
-    {
-      // sub-threshold hazardous order — fixture for the restricted-group rule
-      foreman: foremanA,
-      day: 3,
-      hour: 10,
-      minute: 30,
-      lines: [{ sku: "C029", qty: 6 }], // Markierspray rot (hazardous)
-    },
-    {
-      // ~42 CHF reorder fixture — the "Gloves + Screws" feel from the mockup,
-      // four lines so the foreman home's last-order section shows depth.
-      foreman: foremanA,
-      day: 1,
-      hour: 9,
-      minute: 15,
-      lines: [
-        { sku: "C019", qty: 4 }, // Arbeitshandschuhe Gr.9 — 4 × 2.50 = 10.00
-        { sku: "C002", qty: 150 }, // Schraube TX20 5x60 — 150 × 0.12 = 18.00
-        { sku: "C022", qty: 10 }, // Gehörschutzstöpsel — 10 × 0.90 = 9.00
-        { sku: "C015", qty: 4 }, // Isolierband schwarz — 4 × 1.20 = 4.80
-      ],
-    },
+  const rng = rngFromSeed(20260521);
+  const planOrders = (
+    profile_id: string,
+    pool: typeof productRows,
+    count: number,
+    startDay: number,
+    label: string,
+  ): OrderPlan[] => {
+    const plans: OrderPlan[] = [];
+    for (let i = 0; i < count; i++) {
+      const lineCount = 3 + Math.floor(rng() * 2); // 3 or 4
+      const picks = chooseN(pool, lineCount, rng);
+      plans.push({
+        profile_id,
+        daysAgo: startDay + Math.floor(rng() * 24),
+        items: picks.map((p) => ({
+          product_id: p.id as string,
+          qty: 1 + Math.floor(rng() * 20),
+          unit_price: Number(p.unit_price),
+        })),
+        status: "delivered",
+      });
+      void label;
+    }
+    return plans;
+  };
+
+  const plans: OrderPlan[] = [
+    ...planOrders(foremanA.id as string, productsA, 10, 2, "A"),
+    ...planOrders(foremanB.id as string, productsB, 9, 2, "B"),
   ];
 
-  // Foreman B — tools / fasteners-heavy
-  const bOrders: OrderSpec[] = [
-    {
-      foreman: foremanB,
-      day: 27,
-      hour: 7,
-      minute: 0,
-      lines: [
-        { sku: "C001", qty: 200 },
-        { sku: "C002", qty: 200 },
+  // One sub-threshold hazardous order for foreman B — gives the
+  // restricted-group rule a fixture to fire on at demo time.
+  const markingSpray = productRows.find((p) => p.supplier_sku === "C029");
+  const tape = productRows.find((p) => p.supplier_sku === "C027");
+  if (markingSpray && tape) {
+    plans.push({
+      profile_id: foremanB.id as string,
+      daysAgo: 4,
+      items: [
+        {
+          product_id: markingSpray.id as string,
+          qty: 4,
+          unit_price: Number(markingSpray.unit_price),
+        },
+        {
+          product_id: tape.id as string,
+          qty: 2,
+          unit_price: Number(tape.unit_price),
+        },
       ],
-    },
-    {
-      foreman: foremanB,
-      day: 25,
-      hour: 9,
-      minute: 0,
-      lines: [
-        { sku: "C032", qty: 5 },
-        { sku: "C033", qty: 5 },
-        { sku: "C034", qty: 2 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 22,
-      hour: 11,
-      minute: 30,
-      lines: [
-        { sku: "C047", qty: 4 },
-        { sku: "C046", qty: 1 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 19,
-      hour: 8,
-      minute: 0,
-      lines: [
-        { sku: "C007", qty: 100 },
-        { sku: "C008", qty: 100 },
-        { sku: "C009", qty: 50 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 15,
-      hour: 13,
-      minute: 0,
-      lines: [
-        { sku: "C035", qty: 2 },
-        { sku: "C072", qty: 4 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 12,
-      hour: 7,
-      minute: 45,
-      lines: [
-        { sku: "C004", qty: 200 },
-        { sku: "C005", qty: 200 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 9,
-      hour: 14,
-      minute: 30,
-      lines: [
-        { sku: "C094", qty: 1 },
-        { sku: "C062", qty: 2 },
-        { sku: "C063", qty: 2 },
-      ],
-    },
-    {
-      foreman: foremanB,
-      day: 6,
-      hour: 8,
-      minute: 30,
-      lines: [
-        { sku: "C084", qty: 4 },
-        { sku: "C085", qty: 2 },
-      ],
-    },
-    {
-      // Tools/fasteners-heavy mix; four lines so the last-order section has
-      // depth on Polier B's home too.
-      foreman: foremanB,
-      day: 2,
-      hour: 9,
-      minute: 0,
-      lines: [
-        { sku: "C001", qty: 300 }, // Schraube TX20 4x40 — 300 × 0.08 = 24.00
-        { sku: "C012", qty: 200 }, // Nagel 80mm — 200 × 0.04 = 8.00
-        { sku: "C047", qty: 2 }, // Zollstock — 2 × 3.20 = 6.40
-        { sku: "C032", qty: 2 }, // Bit TX20 — 2 × 1.90 = 3.80
-      ],
-    },
-  ];
-
-  const allOrders: OrderSpec[] = [...aOrders, ...bOrders];
-
-  for (const spec of allOrders) {
-    const items = spec.lines.map((l) => {
-      const p = productBySku.get(l.sku);
-      if (!p) throw new Error(`Order seed: missing sku ${l.sku}`);
-      return { product: p, qty: l.qty };
+      status: "delivered",
     });
-    const total = items.reduce(
-      (sum, it) => sum + it.product.unit_price * it.qty,
+  }
+
+  for (const plan of plans) {
+    const total = plan.items.reduce(
+      (s, it) => s + it.qty * it.unit_price,
       0,
     );
-    const hasHazardous = items.some((it) => it.product.hazardous);
-    // Historical orders: anything haz or over threshold ends up delivered as
-    // well (procurement already approved them in the past).
-    const status: "approved" | "ordered" | "delivered" =
-      spec.forceStatus ?? "delivered";
-    const created_at = daysAgo(spec.day, spec.hour, spec.minute);
-
-    const { data: orderRow, error: orderErr } = await supabase
+    const { data: orderRow } = await db
       .from("orders")
       .insert({
         project_id: projectId,
-        created_by: spec.foreman.id,
-        status,
+        created_by: plan.profile_id,
+        status: plan.status,
         total: Math.round(total * 100) / 100,
         currency: "CHF",
-        created_at,
-        decided_by:
-          hasHazardous || total >= AUTO_APPROVE_THRESHOLD
-            ? profiles[2].id
-            : null,
-        decided_at:
-          hasHazardous || total >= AUTO_APPROVE_THRESHOLD ? created_at : null,
+        created_at: isoDaysAgo(plan.daysAgo),
+        decided_at: isoDaysAgo(plan.daysAgo - 0.01),
       })
       .select("id")
       .single();
-    if (orderErr || !orderRow) throw orderErr ?? new Error("no order");
-
-    const itemPayload = items.map((it) => ({
-      order_id: orderRow.id,
-      product_id: it.product.id,
-      qty: it.qty,
-      unit_price: it.product.unit_price,
-    }));
-    const { error: itemErr } = await supabase
-      .from("order_items")
-      .insert(itemPayload);
-    if (itemErr) throw itemErr;
+    if (!orderRow) continue;
+    await db.from("order_items").insert(
+      plan.items.map((it) => ({
+        order_id: orderRow.id as string,
+        product_id: it.product_id,
+        qty: it.qty,
+        unit_price: Math.round(it.unit_price * 10000) / 10000,
+      })),
+    );
   }
 
-  console.log("[seed] done");
-  console.log(`  - products:    ${productRows.length}`);
-  console.log(`  - suppliers:   ${supplierRows.length}`);
-  console.log(`  - kits:        ${kitDefs.length}`);
-  console.log(`  - orders:      ${allOrders.length}`);
-  void TRADE_FOREMAN_A;
-  void TRADE_FOREMAN_B;
+  console.log("[seed] done:");
+  console.log("  project:", projectId);
+  console.log("  suppliers:", supplierRows.length);
+  console.log("  products:", productRows.length);
+  console.log("  profiles:", profileRows.length);
+  console.log("  kits:", kits.length);
+  console.log("  orders:", plans.length);
 }
 
 main().catch((err) => {

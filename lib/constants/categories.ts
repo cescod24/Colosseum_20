@@ -1,82 +1,111 @@
-// Hand-curated `kategorie → { label_de, label_en, icon }` map used by:
-// - the foreman discovery icon grid (Phase 7)
-// - the ingestion normaliser (Phase 6) when mapping CSV `kategorie` rows to
-//   the canonical `product_group` value
+// Canonical category map. The key is the `product_group` value stored in
+// the `products` table and used in approval rules. The display info drives:
+//   - the foreman discovery icon grid (Phase 7)
+//   - the procurement ingest review screen badges
 //
-// Keys MUST match the CSV's `kategorie` column casing. Icon names refer to
-// lucide-react icon component names (see https://lucide.dev/icons).
+// `kategorieToCategory` folds the CSV's free-text `kategorie` column into
+// the canonical key at ingestion (`scripts/seed.ts`) so the catalog stays
+// consistent regardless of supplier vocabulary.
 //
-// The CSV ships ~25 distinct `kategorie` values; we surface 8 of them as
-// first-class tiles on the discovery grid. Every other `kategorie` rolls up
-// into the `Sonstiges` catch-all so the long tail still has a tile to land on.
+// Icon names are lucide-react component names — see https://lucide.dev.
 
 export type CategoryDefinition = {
   label_de: string;
   label_en: string;
-  icon: string; // lucide-react icon component name
+  icon: string;
 };
 
-export const SONSTIGES_KEY = "Sonstiges";
-
-export const categories: Record<string, CategoryDefinition> = {
-  Befestigung: {
-    label_de: "Schrauben & Dübel",
-    label_en: "Fasteners",
+export const categories = {
+  fasteners: {
+    label_de: "Befestigung & Kleinteile",
+    label_en: "Fasteners & small parts",
     icon: "Wrench",
   },
-  PSA: {
-    label_de: "Schutzausrüstung",
-    label_en: "Personal protective equipment",
+  electrical: {
+    label_de: "Elektro",
+    label_en: "Electrical",
+    icon: "Plug",
+  },
+  ppe: {
+    label_de: "Schutzkleidung & PSA",
+    label_en: "PPE",
     icon: "HardHat",
   },
-  Elektro: {
-    label_de: "Elektromaterial",
-    label_en: "Electrical",
-    icon: "Zap",
-  },
-  Werkzeug: {
-    label_de: "Werkzeug",
-    label_en: "Tools",
+  tools: {
+    label_de: "Werkzeug & Messen",
+    label_en: "Tools & measuring",
     icon: "Hammer",
   },
-  Handwerkzeug: {
-    label_de: "Handwerkzeug",
-    label_en: "Hand tools",
-    icon: "Wrench",
+  covers_tape: {
+    label_de: "Abdeckung & Kleben",
+    label_en: "Covers & tape",
+    icon: "Tape",
   },
-  Farbe: {
-    label_de: "Farben & Marker",
-    label_en: "Paint & markers",
-    icon: "PaintRoller",
+  sealants: {
+    label_de: "Dichten & Fugen",
+    label_en: "Sealants & joints",
+    icon: "Droplet",
   },
-  Klebeband: {
-    label_de: "Klebeband",
-    label_en: "Tape",
-    icon: "Tag",
+  paint: {
+    label_de: "Farbe & Maler",
+    label_en: "Paint & decorating",
+    icon: "Paintbrush",
   },
-  Reinigung: {
-    label_de: "Reinigung",
-    label_en: "Cleaning",
-    icon: "Trash2",
+  cleaning_chemicals: {
+    label_de: "Reinigung & Chemie",
+    label_en: "Cleaning & chemicals",
+    icon: "Sparkles",
   },
-  Chemie: {
-    label_de: "Chemie & Sprays",
-    label_en: "Chemicals & sprays",
-    icon: "SprayCan",
+  misc: {
+    label_de: "Sonstiges / Kleinmaterial",
+    label_en: "Misc / small bits",
+    icon: "Boxes",
   },
-  [SONSTIGES_KEY]: {
-    label_de: "Sonstiges",
-    label_en: "Everything else",
-    icon: "Package",
-  },
+} as const satisfies Record<string, CategoryDefinition>;
+
+export type CategoryKey = keyof typeof categories;
+
+export const CATEGORY_KEYS: readonly CategoryKey[] = Object.keys(
+  categories,
+) as CategoryKey[];
+
+// CSV `kategorie` values seen in `data/sample.csv` and the supplier PDFs
+// we expect to ingest, folded into the canonical group.
+const KATEGORIE_TO_CATEGORY: Record<string, CategoryKey> = {
+  Befestigung: "fasteners",
+  Kunststoff: "fasteners",
+  Kleinmaterial: "fasteners",
+  Elektro: "electrical",
+  PSA: "ppe",
+  Werkzeug: "tools",
+  Handwerkzeug: "tools",
+  Messwerkzeug: "tools",
+  Abdeckung: "covers_tape",
+  Klebeband: "covers_tape",
+  Verpackung: "covers_tape",
+  Abdichtung: "sealants",
+  Dichtstoffe: "sealants",
+  Farbe: "paint",
+  Malerbedarf: "paint",
+  Reinigung: "cleaning_chemicals",
+  "Behälter": "cleaning_chemicals",
+  Entsorgung: "cleaning_chemicals",
+  Chemie: "cleaning_chemicals",
+  Schreibwaren: "misc",
+  Markierung: "misc",
+  Transport: "misc",
+  Konsum: "misc",
 };
 
-/** All distinct kategorie keys we know about (CSV cover). */
-export const CATEGORY_KEYS = Object.keys(categories) as readonly string[];
+export function categoryFor(kategorie: string | null | undefined): CategoryKey {
+  if (!kategorie) return "misc";
+  return KATEGORIE_TO_CATEGORY[kategorie.trim()] ?? "misc";
+}
 
-/** Map a raw CSV `kategorie` to a canonical product_group string. */
-export function productGroupFor(kategorie: string | null | undefined): string {
-  if (!kategorie) return SONSTIGES_KEY;
-  if (kategorie in categories) return kategorie;
-  return SONSTIGES_KEY;
+export function labelDe(key: CategoryKey): string {
+  return categories[key].label_de;
+}
+
+export function labelEn(key: CategoryKey): string {
+  return categories[key].label_en;
 }
