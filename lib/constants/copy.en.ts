@@ -6,9 +6,21 @@ import type { Copy } from "./copy.de";
 export const copyEn: Copy = {
   "nav.queue": "Approval queue",
   "nav.project": "Project rules",
+  "nav.catalog": "Catalog",
   "nav.dashboard": "Spend",
   "nav.role_pill": "Procurement",
   "nav.switch_role": "Switch role",
+
+  "catalog.title": "Catalog",
+  "catalog.subtitle": "Active products on this project",
+  "catalog.empty": "No products linked to this project yet. Ingest a CSV or PDF to populate the catalog.",
+  "catalog.col_name": "Name",
+  "catalog.col_supplier": "Supplier",
+  "catalog.col_sku": "SKU",
+  "catalog.col_group": "Group",
+  "catalog.col_unit": "Unit",
+  "catalog.col_price": "Unit price",
+  "catalog.col_save": "Save",
 
   "dashboard.title": "Spend dashboard",
   "dashboard.subtitle": "C-material tail spend",

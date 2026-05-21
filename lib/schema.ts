@@ -129,3 +129,19 @@ export const submitOrderInputSchema = z.object({
 
 export type OrderLineInput = z.infer<typeof orderLineInputSchema>;
 export type SubmitOrderInput = z.infer<typeof submitOrderInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Procurement-side product edits (Phase 9.3.3) — PATCH /api/products/[id]
+// ---------------------------------------------------------------------------
+
+export const productPatchInputSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    product_group: z.string().min(1).nullable().optional(),
+    unit_price: z.number().positive().nullable().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "At least one field must be provided.",
+  });
+
+export type ProductPatchInput = z.infer<typeof productPatchInputSchema>;

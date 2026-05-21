@@ -813,7 +813,7 @@ new translations.
 renders, "Back" goes to `/foreman`. Re-visit `/foreman/discover` and
 search "Beton" → the same redirect copy is shown.
 
-#### `[ ]` 9.3.3 Catalog admin UI — rename / re-group activated products (cross-lane)
+#### `[x]` 9.3.3 Catalog admin UI — rename / re-group activated products (cross-lane)
 
 **Brief requirement:** §2.1 "A minimal catalog admin UI where procurement
 can clean up, rename and group C-materials." Today the review screen only
