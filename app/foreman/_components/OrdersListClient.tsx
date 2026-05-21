@@ -43,7 +43,14 @@ function shortId(id: string) {
 
 export function OrdersListClient({ initialOrders, profileId }: Props) {
   const [orders, setOrders] = useState<OrderSummary[]>(initialOrders);
-  const [lastUpdated, setLastUpdated] = useState<number>(() => Date.now());
+  // 0 on first render (SSR + first client paint match); the mount effect
+  // below stamps it with Date.now() once we're past hydration.
+  const [lastUpdated, setLastUpdated] = useState<number>(0);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLastUpdated(Date.now());
+  }, []);
 
   // Realtime subscription. Filter on created_by client-side because filtering
   // on a UUID column via Realtime is brittle; we patch row-by-row anyway.
@@ -144,7 +151,7 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
         </div>
         <span
           className="text-[10px] uppercase tracking-wider text-zinc-400"
-          title={new Date(lastUpdated).toISOString()}
+          title={lastUpdated ? new Date(lastUpdated).toISOString() : undefined}
         >
           Live
         </span>
