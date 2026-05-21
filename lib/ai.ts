@@ -18,6 +18,14 @@ import OpenAI from "openai";
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 export const AI_TIMEOUT_MS = 20_000;
 
+// Audio transcription (Whisper) gets its own timeout + model env var. Audio
+// calls have a slower P99 than chat completions (Whisper has no streaming
+// fast path for short clips), and bumping AI_TIMEOUT_MS to cover them would
+// drag chat completions along for no benefit.
+export const OPENAI_TRANSCRIBE_MODEL =
+  process.env.OPENAI_TRANSCRIBE_MODEL ?? "whisper-1";
+export const AI_AUDIO_TIMEOUT_MS = 30_000;
+
 type CallOptions<T> = {
   system: string;
   userText: string;
@@ -80,6 +88,50 @@ export async function callAI<T>(opts: CallOptions<T>): Promise<T> {
     return opts.parse(text);
   } catch (err) {
     console.warn("[ai] call failed — returning canned fallback", err);
+    return opts.fallback;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Audio transcription — OpenAI Whisper
+// ---------------------------------------------------------------------------
+// Used by POST /api/voice. Same error contract as callAI: never throws —
+// always returns the fallback string on missing key / timeout / SDK error /
+// empty transcript. Callers can run downstream logic against the result
+// without try/catch.
+
+type TranscribeOptions = {
+  file: File;
+  /** ISO language hint forwarded to Whisper; defaults to German. */
+  language?: string;
+  /** Returned verbatim on missing key / timeout / error / empty transcript. */
+  fallback: string;
+};
+
+export async function transcribeAudio(opts: TranscribeOptions): Promise<string> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    console.warn("[ai] OPENAI_API_KEY missing — returning canned transcript");
+    return opts.fallback;
+  }
+
+  const client = new OpenAI({ apiKey: key, timeout: AI_AUDIO_TIMEOUT_MS });
+
+  try {
+    const resp = await client.audio.transcriptions.create({
+      file: opts.file,
+      model: OPENAI_TRANSCRIBE_MODEL,
+      language: opts.language ?? "de",
+      response_format: "json",
+    });
+    const text = (resp as { text?: string }).text?.trim() ?? "";
+    if (!text) {
+      console.warn("[ai] empty transcript — returning canned transcript");
+      return opts.fallback;
+    }
+    return text;
+  } catch (err) {
+    console.warn("[ai] transcription failed — returning canned transcript", err);
     return opts.fallback;
   }
 }
