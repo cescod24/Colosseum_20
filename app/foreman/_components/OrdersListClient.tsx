@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft, Clock, RotateCcw, X } from "lucide-react";
 
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 import { getBrowserClient } from "@/lib/supabase/browser";
@@ -25,6 +25,40 @@ type Props = {
 
 const POLL_MS = 3_000;
 
+// In-flight orders the foreman is tracking. Everything else (delivered /
+// rejected) is "Verlauf" (history) and is tucked away by default so the
+// list doesn't dump every past order at once.
+const ACTIVE_STATUSES: OrderStatus[] = [
+  "draft",
+  "pending",
+  "approved",
+  "ordered",
+];
+
+// Foreman can hide an order from the active view ("ausblenden"). Hidden ids
+// live in localStorage (a per-device view preference) — the order is never
+// deleted, it just moves to Verlauf, so procurement + analytics are untouched
+// and the foreman can restore it.
+const DISMISS_KEY = "siteorder.orders.dismissed.v1";
+
+function loadDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISS_KEY);
+    return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistDismissed(ids: Set<string>) {
+  try {
+    window.localStorage.setItem(DISMISS_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* ignore */
+  }
+}
+
 function mergeOrders(
   current: OrderSummary[],
   incoming: OrderSummary[],
@@ -46,10 +80,16 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
   // 0 on first render (SSR + first client paint match); the mount effect
   // below stamps it with Date.now() once we're past hydration.
   const [lastUpdated, setLastUpdated] = useState<number>(0);
+  const [view, setView] = useState<"active" | "history">("active");
+  // Starts empty so SSR + first client paint match; loaded from localStorage
+  // on mount.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLastUpdated(Date.now());
+    setDismissed(loadDismissed());
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // Realtime subscription. Filter on created_by client-side because filtering
@@ -129,7 +169,39 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
     };
   }, []);
 
-  const totalCount = useMemo(() => orders.length, [orders]);
+  function dismiss(id: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      persistDismissed(next);
+      return next;
+    });
+  }
+
+  function restore(id: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      persistDismissed(next);
+      return next;
+    });
+  }
+
+  const activeOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => ACTIVE_STATUSES.includes(o.status) && !dismissed.has(o.id),
+      ),
+    [orders, dismissed],
+  );
+  const historyOrders = useMemo(
+    () =>
+      orders.filter(
+        (o) => !ACTIVE_STATUSES.includes(o.status) || dismissed.has(o.id),
+      ),
+    [orders, dismissed],
+  );
+  const shown = view === "active" ? activeOrders : historyOrders;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-8 pt-4">
@@ -146,7 +218,7 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
             {copyDe["orders.title"]}
           </h1>
           <p className="text-xs text-zinc-500">
-            {formatCopy(copyDe["orders.items"], { count: totalCount })}
+            {formatCopy(copyDe["orders.items"], { count: shown.length })}
           </p>
         </div>
         <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-400">
@@ -157,38 +229,91 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
         </span>
       </header>
 
-      {orders.length === 0 ? (
+      <div className="flex gap-1 rounded-full bg-zinc-100 p-1 text-sm">
+        <button
+          type="button"
+          onClick={() => setView("active")}
+          className={`flex-1 rounded-full px-3 py-1.5 font-medium transition-colors ${
+            view === "active"
+              ? "bg-white text-zinc-900 shadow-sm"
+              : "text-zinc-500"
+          }`}
+        >
+          Aktuell ({activeOrders.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("history")}
+          className={`flex-1 rounded-full px-3 py-1.5 font-medium transition-colors ${
+            view === "history"
+              ? "bg-white text-zinc-900 shadow-sm"
+              : "text-zinc-500"
+          }`}
+        >
+          Verlauf ({historyOrders.length})
+        </button>
+      </div>
+
+      {shown.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500">
-          {copyDe["orders.empty"]}
+          {view === "active"
+            ? "Keine offenen Bestellungen — alles erledigt."
+            : "Noch kein Verlauf."}
         </p>
       ) : (
         <ul className="space-y-2">
-          {orders.map((o) => (
-            <li
-              key={o.id}
-              className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-zinc-900">
-                  #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
-                </p>
-                <p className="text-[11px] text-zinc-500">
-                  {new Date(o.created_at).toLocaleString("de-CH", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-              <StatusPill status={o.status} />
-              {o.status === "pending" && (
-                <p className="flex items-center gap-1 text-[11px] text-amber-700">
-                  <Clock className="h-3 w-3" /> {copyDe["orders.waiting"]}
-                </p>
-              )}
-            </li>
-          ))}
+          {shown.map((o) => {
+            const isDismissed = dismissed.has(o.id);
+            return (
+              <li
+                key={o.id}
+                className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-zinc-500">
+                      {new Date(o.created_at).toLocaleString("de-CH", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    {view === "active" ? (
+                      <button
+                        type="button"
+                        onClick={() => dismiss(o.id)}
+                        aria-label="Ausblenden"
+                        title="Ausblenden"
+                        className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : isDismissed ? (
+                      <button
+                        type="button"
+                        onClick={() => restore(o.id)}
+                        aria-label="Wieder anzeigen"
+                        title="Wieder anzeigen"
+                        className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <StatusPill status={o.status} />
+                {o.status === "pending" && (
+                  <p className="flex items-center gap-1 text-[11px] text-amber-700">
+                    <Clock className="h-3 w-3" /> {copyDe["orders.waiting"]}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
