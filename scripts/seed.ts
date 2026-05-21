@@ -430,13 +430,17 @@ async function main() {
       lines: [{ sku: "C029", qty: 6 }], // Markierspray rot (hazardous)
     },
     {
+      // ~42 CHF reorder fixture — the "Gloves + Screws" feel from the mockup,
+      // four lines so the foreman home's last-order section shows depth.
       foreman: foremanA,
       day: 1,
       hour: 9,
       minute: 15,
       lines: [
-        { sku: "C019", qty: 2 }, // Arbeitshandschuhe Gr.9
-        { sku: "C003", qty: 50 }, // Schraube TX25 — the famous "Gloves + Screws" of the mockup
+        { sku: "C019", qty: 4 }, // Arbeitshandschuhe Gr.9 — 4 × 2.50 = 10.00
+        { sku: "C002", qty: 150 }, // Schraube TX20 5x60 — 150 × 0.12 = 18.00
+        { sku: "C022", qty: 10 }, // Gehörschutzstöpsel — 10 × 0.90 = 9.00
+        { sku: "C015", qty: 4 }, // Isolierband schwarz — 4 × 1.20 = 4.80
       ],
     },
   ];
@@ -527,13 +531,17 @@ async function main() {
       ],
     },
     {
+      // Tools/fasteners-heavy mix; four lines so the last-order section has
+      // depth on Polier B's home too.
       foreman: foremanB,
       day: 2,
       hour: 9,
       minute: 0,
       lines: [
-        { sku: "C001", qty: 300 },
-        { sku: "C012", qty: 200 },
+        { sku: "C001", qty: 300 }, // Schraube TX20 4x40 — 300 × 0.08 = 24.00
+        { sku: "C012", qty: 200 }, // Nagel 80mm — 200 × 0.04 = 8.00
+        { sku: "C047", qty: 2 }, // Zollstock — 2 × 3.20 = 6.40
+        { sku: "C032", qty: 2 }, // Bit TX20 — 2 × 1.90 = 3.80
       ],
     },
   ];

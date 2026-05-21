@@ -326,7 +326,10 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   - [x] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
         (tools/fasteners-heavy), procurement.
   - [x] Authors **9–10 orders per foreman** over last ~28 days, dates spread,
-        skewed by trade. Most-recent order per foreman has 2–3 line items.
+        skewed by trade. Most-recent order per foreman has 4 line items
+        (Polier A ≈ 42 CHF Gloves+Screws+Gehörschutz+Isolierband, matching
+        the mockup's 41 CHF vibe; Polier B ≈ 42 CHF Schrauben+Nägel+
+        Zollstock+Bit).
   - [x] **One** sub-threshold hazardous order (~43 CHF — 6× Markierspray rot)
         so the group rule has a fixture.
   - [x] Inserts **three `material_sets`** for the project + their
@@ -637,7 +640,9 @@ them:
   `material_sets`, top-5 most-ordered grid, sticky cart bar with running
   CHF total. Offline toggle + localStorage queue with `online` event flush.
   Submit POSTs `/api/orders` (minimal handler shipped here; Dev B's Phase 4
-  iterates it) then redirects to `/foreman/orders`.
+  iterates it) then redirects to `/foreman/orders`. The discover entry-point
+  is intentionally absent from the home — Dev C re-adds it when Phase 7
+  ships `/foreman/discover`.
 - _Phase 3 —_ **done** (Slice A). `app/foreman/orders/page.tsx` renders a
   5-segment status pill per order (Draft · Pending · Approved · Ordered ·
   Delivered) and subscribes to Supabase Realtime on `orders` filtered to the

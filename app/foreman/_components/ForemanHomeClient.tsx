@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ClipboardList, LogOut, Search } from "lucide-react";
+import { ChevronRight, ClipboardList, LogOut } from "lucide-react";
 
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 import type {
@@ -398,15 +398,6 @@ export function ForemanHomeClient({
           </ul>
         </section>
       )}
-
-      <Link
-        href="/foreman/discover"
-        className="flex items-center gap-2 rounded-2xl border border-dashed border-zinc-300 px-4 py-3 text-sm text-zinc-600 hover:border-zinc-400"
-      >
-        <Search className="h-4 w-4" />
-        Material per Aufgabe finden …
-        <ChevronRight className="ml-auto h-4 w-4" />
-      </Link>
 
       <div className="flex-1" />
 
