@@ -100,33 +100,45 @@ export function ForemanHomeClient({
     return m;
   }, [catalog]);
 
-  const [cart, setCart] = useState<CartLine[]>(() => {
-    // SSR returns []; first client render seeds from localStorage / lastOrder.
-    if (typeof window === "undefined") return [];
+  // All three states start with SSR-matching defaults (empty / true / 0) so
+  // the first client paint reproduces the server HTML byte-for-byte. We then
+  // sync from localStorage + navigator in a single mount-time effect.
+  // The setState-in-effect lint rule fires here, but this is precisely the
+  // pattern React docs prescribe for "hydrate from browser-only storage."
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [forcedOffline, setForcedOffline] = useState(false);
+  const [browserOnline, setBrowserOnline] = useState(true);
+  const [submitState, setSubmitState] = useState<
+    "idle" | "sending" | "queued" | "error"
+  >("idle");
+  const [queueLen, setQueueLen] = useState<number>(0);
+
+  // One-shot hydration of cart + queue length + navigator.onLine from the
+  // browser, after the first client render has reproduced the SSR HTML.
+  // setState-in-effect is intentional here — this is React's documented
+  // pattern for "rehydrate from browser-only storage." It runs exactly once
+  // (no dep changes), so it can't cascade.
+  useEffect(() => {
     const persisted = loadCart();
-    if (persisted.length) return persisted;
-    if (lastOrder) {
-      return lastOrder.lines.map((l) => ({
+    let nextCart: CartLine[] | null = null;
+    if (persisted.length) {
+      nextCart = persisted;
+    } else if (lastOrder) {
+      nextCart = lastOrder.lines.map((l) => ({
         product_id: l.product_id,
         qty: l.qty,
       }));
     }
-    return [];
-  });
-  const [forcedOffline, setForcedOffline] = useState(false);
-  const [browserOnline, setBrowserOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
-  const [submitState, setSubmitState] = useState<
-    "idle" | "sending" | "queued" | "error"
-  >("idle");
-  const [queueLen, setQueueLen] = useState<number>(() =>
-    typeof window === "undefined" ? 0 : loadQueue().length,
-  );
+    const qLen = loadQueue().length;
+    const offline = typeof navigator !== "undefined" && !navigator.onLine;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (nextCart) setCart(nextCart);
+    if (qLen > 0) setQueueLen(qLen);
+    if (offline) setBrowserOnline(false);
+  }, [lastOrder]);
 
-  // Wire up the online/offline listeners. Initial sync uses a getter on the
-  // first event invocation rather than setState-in-effect; we listen for
-  // change events only.
+  // Wire up the online/offline change listeners (these only fire on transitions
+  // after mount — setState in the callbacks is fine, not setState-in-effect).
   useEffect(() => {
     const onOnline = () => setBrowserOnline(true);
     const onOffline = () => setBrowserOnline(false);

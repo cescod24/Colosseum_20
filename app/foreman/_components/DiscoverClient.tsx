@@ -77,9 +77,9 @@ type DiscoverState =
 
 export function DiscoverClient({ projectId, catalog }: Props) {
   const router = useRouter();
-  const [cart, setCart] = useState<CartLine[]>(() =>
-    typeof window === "undefined" ? [] : loadCart(),
-  );
+  // Initial state matches SSR ([]). After the first client paint reproduces
+  // the server HTML, the mount effect hydrates from localStorage.
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(
     null,
   );
@@ -88,6 +88,17 @@ export function DiscoverClient({ projectId, catalog }: Props) {
   const [submitState, setSubmitState] = useState<
     "idle" | "sending" | "queued" | "error"
   >("idle");
+
+  // One-shot hydration of cart from localStorage after first paint.
+  // setState-in-effect is intentional — this is the documented pattern for
+  // rehydrating browser-only persistent state.
+  useEffect(() => {
+    const persisted = loadCart();
+    if (persisted.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCart(persisted);
+    }
+  }, []);
 
   useEffect(() => {
     persistCart(cart);
