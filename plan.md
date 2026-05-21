@@ -79,11 +79,13 @@ Demo flow (Definition of Done):
 - [x] **Discovery shape:** 3–5 items max, each with a **specific** one-line "why
       this fits" reason. Empty result → "Nichts gefunden — probier eine
       Kategorie." with a button to the icon grid.
-- [x] **A-material guard:** Deterministic substring blocklist
-      (`beton`, `zement`, `stahl`, `bewehrung`, `rebar`, `concrete`, `steel`),
-      case-insensitive. Applied at search input **and** at ingestion (so an
-      A-material can never enter the catalog). Friendly German redirect copy,
-      no dead-end.
+- [x] **A-material guard:** Deterministic substring blocklist, case-insensitive,
+      expanded with German vocabulary observed in the reference Angebot:
+      `beton`, `zement`, `stahl`, `bewehrung`, `rebar`, `concrete`, `steel`,
+      `schacht`, `schachtring`, `schachtdeckel`, `kabelschutzrohr`,
+      `betonrohr`, `granit`, `gneiss`, `pflasterstein`. Applied at search input
+      **and** at ingestion (so an A/B-material can never enter the catalog).
+      Friendly German redirect copy, no dead-end.
 - [x] **Approval rules in MVP:** total threshold + restricted product groups
       (hazardous → always pending). Restricted suppliers + per-foreman thresholds
       are schema-only and not exercised.
@@ -97,10 +99,33 @@ Demo flow (Definition of Done):
       spread, deliberately skewed by trade profile (one PPE/consumables-heavy,
       one tools/fasteners-heavy). Include **one** sub-threshold hazardous order
       so the group rule has something to fire on at demo time.
-- [x] **Contract PDFs:** two synthetic, committed to `data/`:
-      - `sample-contract-clean.pdf` — clean 6–8 row table in CHF.
-      - `sample-contract-messy.pdf` — 2+ ambiguous rows ("auf Anfrage", a price
-        range, a missing unit, a merged line) to exercise the review state.
+- [x] **Contract PDFs:** two used by Phase 6 ingestion; live under `data/`.
+      - `data/fake_contract_products_with_logo.pdf` — **already in the repo at
+        root**, kept under its existing filename to avoid churn. Clean 8-row
+        ACME "Supply Contract" with `C001 / C013 / C019 / C025 / C029 / C035 /
+        C046 / C056`. EUR prices, normalised to CHF at ingest.
+        **No authoring needed.**
+      - `data/sample-contract-messy.pdf` — **still to author** for Phase 6.
+        2+ ambiguous rows ("auf Anfrage", a price range, a missing unit, a
+        merged product line) to exercise the review state. Use the same ACME
+        supplier branding so it reads as a late addendum to the clean contract.
+- [x] **Real-world reference PDF (not ingested):**
+      `Application_Designs_-_2026-04-18T102930.193.pdf` (Swiss "Angebot",
+      ~CHF 19'862, four pages of cable shafts, concrete pipes, manhole covers,
+      granite cobblestones — clearly A/B-material) sits at the repo root as a
+      **shape reference only**. The Phase 6 extraction prompt is written aware
+      of this real-PDF shape (two codes per row including Swiss NPK, "Alternative
+      Position" rows, per-line Rabatt % / TZ Zuschlag, multi-page repeated
+      headers, summary block with MWST + Gewicht) so the path degrades gracefully
+      on a real supplier PDF — but this file is never fed to the demo and is not
+      moved into `data/`.
+- [x] **Two-supplier demo via two ingestion channels:** Phase 1 seeds **only the
+      CSV's suppliers** (Würth, Fischer, Reisser, Bauhaus, HellermannTyton, …).
+      The **ACME supplier is onboarded live in Phase 6** by uploading
+      `fake_contract_products_with_logo.pdf` — that's the demo beat that honours
+      the brief's "1–2 example suppliers via Excel + contract" framing. ACME
+      product rows coexist with CSV rows under the same artikel codes (e.g.
+      C001) because `products` is keyed by `(supplier_id, supplier_sku)`.
 - [x] **Material-set kits (minimal):** Three kits are pre-seeded in the DB
       ("PPE-Set neuer Mitarbeiter", "Trockenbau-Set 50 m²",
       "Werkzeug-Grundausstattung") and shown as one-tap tiles on the foreman
@@ -166,9 +191,11 @@ lib/
     copy.en.ts                 English microcopy (procurement)
     blocklist.ts               A-material substrings
 data/
-  sample.csv                   (already present, 100 rows)
-  sample-contract-clean.pdf    synthetic
-  sample-contract-messy.pdf    synthetic, ambiguous rows
+  sample.csv                              (move from repo root; 100 rows)
+  fake_contract_products_with_logo.pdf    (move from repo root; clean ACME contract, 8 rows, EUR → CHF)
+  sample-contract-messy.pdf               (still to author; ambiguous rows, ACME branding)
+(repo root, reference only — not loaded by the app)
+  Application_Designs_-_2026-04-18T102930.193.pdf   real Swiss Angebot, shape reference for the ingest prompt
 supabase/migrations/
   0001_init.sql                all tables + RLS + check constraints + indexes
 scripts/
@@ -201,8 +228,12 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
       exclusively."*
 - [ ] Add `lib/role.ts` — set/read an `x-demo-user` cookie with the values
       `foreman-a | foreman-b | procurement`, plus a tiny UI on `/` to switch.
+- [ ] Create `data/` directory and **move** `sample.csv` and
+      `fake_contract_products_with_logo.pdf` into it (they currently sit at
+      repo root). Leave `Application_Designs_-_2026-04-18T102930.193.pdf` at
+      repo root — it's a reference, not a fixture.
 - **Checkpoint:** `npm run dev` serves a placeholder home page with the
-  role switcher.
+  role switcher; `data/` contains the CSV and the clean PDF.
 
 ### Phase 1 — Data model + seed  `[ ]`
 - [ ] Write `supabase/migrations/0001_init.sql`:
@@ -223,9 +254,12 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   - [ ] Map `kategorie → product_group` via `lib/constants/categories.ts`;
         `einheit → unit`; `preis_eur → unit_price` with `currency='CHF'`;
         `gefahrgut → hazardous`; `typische_baustelle → trade`.
-  - [ ] One supplier per distinct `lieferant`.
+  - [ ] One supplier per distinct `lieferant` (Würth, Fischer, Reisser,
+        Bauhaus, HellermannTyton, …). **Do not seed ACME** — that supplier is
+        onboarded live during the Phase 6 ingestion demo by uploading
+        `data/fake_contract_products_with_logo.pdf`.
   - [ ] Project "Baustelle Zürich-West", `auto_approve_threshold=200`,
-        `currency='CHF'`. Link all products via `project_products`.
+        `currency='CHF'`. Link all CSV products via `project_products`.
   - [ ] `approval_rules` row: `restricted_groups=['Hazardous']` (or the
         German equivalent that matches the constants map).
   - [ ] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
@@ -323,7 +357,13 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   comstruct-shaped payload.
 
 ### Phase 6 — Catalog ingestion CSV + PDF (F5, weight 12)  `[ ]`
-- [ ] `(procurement)/ingest/page.tsx`: upload area accepting CSV/XLSX and PDF.
+
+This phase also **onboards the ACME supplier live** by uploading
+`data/fake_contract_products_with_logo.pdf` — the demo's answer to the brief's
+"1–2 example suppliers via Excel + contract" framing. ACME is *not* seeded.
+
+- [ ] `(procurement)/ingest/page.tsx`: upload area accepting CSV/XLSX and PDF,
+      plus a supplier-name field (defaults from PDF header / CSV column).
 - [ ] CSV path: PapaParse client-side → POST `/api/ingest?type=csv` →
       apply A-material blocklist + normalisation → INSERT as `status='active'`.
 - [ ] PDF path: POST `/api/ingest` with PDF as a document block → Anthropic
@@ -331,15 +371,40 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
       `{ name, supplier_sku, unit, unit_price|null, product_group|null,
       confidence }` → Zod validate → rows with `unit_price=null` or
       `confidence < 0.7` go to `status='review'`.
+- [ ] **Extraction prompt must be robust to real Swiss supplier PDFs** —
+      informed by the reference Angebot
+      (`Application_Designs_-_2026-04-18T102930.193.pdf`):
+  - [ ] **Skip "Alternative Position zur Position X" rows** — they're
+        supplier-side variants of the previous line, not new products.
+  - [ ] When a per-line `Rabatt %` or `TZ Zuschlag/Absc` is present, use
+        `Total ohne MWST / Menge` as the effective `unit_price` rather than
+        the headline `Preis CHF`.
+  - [ ] **Ignore the trailing summary block** (Summe Positionen, MWST,
+        Gewicht, Zahlungsbedingungen).
+  - [ ] **Ignore Swiss NPK reference codes** (e.g. `151.412.211`) — capture
+        only the supplier's `Artikel` code as `supplier_sku`. NPK is not
+        modelled.
+  - [ ] **Multi-page with repeated headers** is normal — extract from all
+        pages, dedupe by `supplier_sku` before insert.
+  - [ ] **Apply the A-material blocklist row by row at ingestion** — drop (or
+        flag, depending on confidence) lines matching `schacht`, `betonrohr`,
+        `kabelschutzrohr`, `granit`, `gneiss`, `pflasterstein`, etc. The
+        reference Angebot is full of these; ACME's PDF is not.
 - [ ] Review screen: lists `review` rows with editable fields and a confidence
       badge; per-row "Bestätigen & aktivieren" sets `status='active'`.
 - [ ] `lib/anthropic.ts` wrapper: 12 s timeout, falls back to canned JSON on
-      missing key / timeout / error. Canned responses for both PDFs authored
-      to mirror the live output (messy PDF must yield ≥ 2 review rows).
-- [ ] Author both PDFs in `data/`. Messy PDF must contain "auf Anfrage", a
-      price range, a missing unit, and one merged-product line.
-- **Checkpoint:** uploading the messy PDF produces ≥ 2 `review` rows;
-  procurement activates them in one tap.
+      missing key / timeout / error. Canned responses for **both** PDFs
+      authored to mirror the live output:
+  - [ ] Clean PDF (`fake_contract_products_with_logo.pdf`) → **8 active rows**
+        under a new ACME supplier (C001, C013, C019, C025, C029, C035, C046, C056).
+  - [ ] Messy PDF (`sample-contract-messy.pdf`) → **≥ 2 rows in `review`**.
+- [ ] Author **only the messy PDF** in `data/` (the clean PDF already exists
+      and is reused as-is — only normalisation EUR → CHF runs at ingest).
+      Messy PDF must contain "auf Anfrage", a price range, a missing unit, and
+      one merged-product line; use ACME branding so it reads as a late addendum.
+- **Checkpoint:** uploading the clean PDF produces 8 active ACME products
+  (joining the existing CSV catalog under the same project); uploading the
+  messy PDF produces ≥ 2 `review` rows that procurement activates in one tap.
 
 ### Phase 7 — Task-based discovery (F6, weight 11)  `[ ]`
 - [ ] `(foreman)/discover/page.tsx`:
@@ -471,6 +536,16 @@ them:
 - Guided "trade → area → kit" order wizard from the brief — the combination
   of kit tiles + task search substitutes for it; no separate wizard route.
 - AI-classified categories (the hand-curated kategorie map is the source of truth).
+- Swiss **NPK code** (Normpositionen-Katalog, e.g. `151.412.211`) as a separate
+  product column — observed in real Swiss supplier Angebote but not modelled;
+  ingestion drops it. A future extension would add `products.npk_code` and a
+  per-trade lookup.
+- **Per-line discount structures** (`Rabatt %`, `TZ Zuschlag/Absc`) — ingestion
+  collapses these into the effective unit price; the discount metadata itself
+  is not stored.
+- **"Alternative Position" variant tracking** — real Swiss supplier PDFs attach
+  good/better/best variants as alternative positions to a parent line;
+  ingestion drops the alternatives and keeps only the parent product.
 
 ---
 
