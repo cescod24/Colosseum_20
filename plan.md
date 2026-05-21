@@ -524,13 +524,16 @@ the explainer further if time allows. Drop entirely if short.
       `discover.blocked.body` — same German phrasing about Beton, Stahl,
       Bewehrung, Schalung going through the Bauleiter.)
 
-### Phase 9 — Spend dashboard (F8, weight 6) — stretch  `[ ]`
-- [ ] `(procurement)/dashboard/page.tsx` with Recharts:
-  - [ ] Bar: spend by supplier (top N).
-  - [ ] Bar: spend by product group.
-  - [ ] Table: top foremen by tail-spend (sum qty × unit_price grouped by
+### Phase 9 — Spend dashboard (F8, weight 6) — stretch  `[x]`
+- [x] `app/procurement/dashboard/page.tsx` with Recharts:
+  - [x] Bar: spend by supplier (top 8, sorted desc).
+  - [x] Bar: spend by product group.
+  - [x] Table: top foremen by tail-spend (sum qty × unit_price grouped by
         `created_by`).
-- [ ] All amounts in CHF. Filter by project (default = the one seeded project).
+- [x] All amounts in CHF (driven by `projects.currency`). Filtered to the
+      procurement profile's project. Filters orders by
+      `status IN ('pending','approved','ordered','delivered')` so
+      drafts/rejects don't pollute spend.
 
 ### Phase 10 — Material-set templates: procurement-side editor (F9, weight 4) — cut  `[ ]`
 
@@ -693,7 +696,7 @@ them:
   catalog, "Fenster abdichten" returns real products with real DB UUIDs
   (`canned:false`). The foreman-facing UI is slice A.
 - _Phase 8 (stretch — banner already core in Phase 2; this is the /info route) —_ **done** (Dev B lane). `app/foreman/info/page.tsx` + `HelpCircle` "?" icon link in the foreman home header; reuses `categories.ts` for the icons and `copy.de.ts` for all strings (new `info.*` + `nav.info` keys).
-- _Phase 9 (stretch — spend dashboard) —_ (not started)
+- _Phase 9 (stretch — spend dashboard) —_ **done** (Dev B lane). `app/procurement/dashboard/{page.tsx,DashboardCharts.tsx}` with two Recharts bars (supplier top-8, product_group) + a top-foremen table. Server component does the SQL join + JS reduction; client island renders the bars. New `dashboard.*` keys in `copy.en.ts`; nav link added to `app/procurement/layout.tsx`.
 - _Phase 10 (cut — only the procurement kit editor; seeded kits done in Phase 2) —_ (intentionally cut)
 
 ---
@@ -754,7 +757,7 @@ them as locked decisions unless the user explicitly reopens the question:
 Each item below is a unit of work. Tick `[ ]` → `[x]` when complete and
 append a one-line note under the item with the commit SHA and verification.
 
-#### `[ ]` 9.3.1 Phase 9 — Spend dashboard (Dev B lane)
+#### `[x]` 9.3.1 Phase 9 — Spend dashboard (Dev B lane)
 
 **Brief requirement:** §2.4 "Basic spend analytics: C-material spend per
 project, per supplier, per product group. Which projects / foremen

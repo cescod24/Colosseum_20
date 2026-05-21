@@ -6,8 +6,17 @@ import type { Copy } from "./copy.de";
 export const copyEn: Copy = {
   "nav.queue": "Approval queue",
   "nav.project": "Project rules",
+  "nav.dashboard": "Spend",
   "nav.role_pill": "Procurement",
   "nav.switch_role": "Switch role",
+
+  "dashboard.title": "Spend dashboard",
+  "dashboard.subtitle": "C-material tail spend",
+  "dashboard.by_supplier": "Spend by supplier",
+  "dashboard.by_group": "Spend by product group",
+  "dashboard.by_foreman": "Top foremen by spend",
+  "dashboard.foreman": "Foreman",
+  "dashboard.spend": "Spend",
 
   "queue.title": "Pending approvals",
   "queue.empty": "No pending orders. Foremen will land here when an order trips a rule.",
