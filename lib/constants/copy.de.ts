@@ -60,6 +60,23 @@ export const copyDe: Copy = {
     "Beton, Stahl, Bewehrung und Schalung gehen über deinen Bauleiter — er hat die Rahmenverträge mit den Lieferanten.",
   "info.back": "Zurück zur Startseite",
 
+  "order_detail.title": "Auftrag",
+  "order_detail.lines": "Positionen",
+
+  "delivery.title": "Lieferung bestätigen",
+  "delivery.body":
+    "Tipp den Lieferschein ab — die App liest ihn automatisch und bestätigt die Lieferung.",
+  "delivery.cta": "Lieferschein scannen",
+  "delivery.processing": "Wird gelesen …",
+  "delivery.success": "Lieferung bestätigt — Status: Geliefert.",
+  "delivery.low_confidence":
+    "Foto nicht eindeutig — bitte nochmal scannen oder per Hand bestätigen.",
+  "delivery.already_confirmed": "Lieferung bereits bestätigt.",
+  "delivery.field_ref": "Lieferschein-Nr.",
+  "delivery.field_supplier": "Lieferant",
+  "delivery.field_lines": "Positionen",
+  "delivery.field_confidence": "Erkennungsgenauigkeit",
+
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
 

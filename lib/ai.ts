@@ -24,6 +24,10 @@ type CallOptions<T> = {
   /** Optional PDF (base64, no data: prefix) attached as a file content part. */
   pdfBase64?: string;
   pdfFilename?: string;
+  /** Optional image (base64, no data: prefix) for vision calls (delivery-note OCR). */
+  imageBase64?: string;
+  /** MIME type for the image; defaults to image/jpeg. */
+  imageMimeType?: string;
   /** Returned verbatim if no key / timeout / error / parse-fail. */
   fallback: T;
   /** Validate + parse the model's text output into T. Throw to trigger fallback. */
@@ -49,6 +53,13 @@ export async function callAI<T>(opts: CallOptions<T>): Promise<T> {
         filename: opts.pdfFilename ?? "document.pdf",
         file_data: `data:application/pdf;base64,${opts.pdfBase64}`,
       },
+    });
+  }
+  if (opts.imageBase64) {
+    const mime = opts.imageMimeType ?? "image/jpeg";
+    userParts.push({
+      type: "image_url",
+      image_url: { url: `data:${mime};base64,${opts.imageBase64}` },
     });
   }
 

@@ -270,9 +270,12 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
                 className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-zinc-900">
+                  <Link
+                    href={`/foreman/orders/${o.id}`}
+                    className="text-sm font-semibold text-zinc-900 hover:text-zinc-600"
+                  >
                     #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
-                  </p>
+                  </Link>
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] text-zinc-500">
                       {new Date(o.created_at).toLocaleString("de-CH", {

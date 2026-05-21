@@ -980,13 +980,22 @@ For a fresh chat picking up Dev B's lane:
 ("delivery note is taken and stored in their container") and uses the
 multimodal model already in `lib/ai.ts`.
 
-- [ ] **B1 — Delivery-note OCR confirms-delivery flow.** Foreman opens
-      a single-order view, snaps the paper delivery note, the vision
-      model extracts the order ref + line counts, and the foreman taps
-      one button to flip `orders.status='delivered'` without waiting
-      for the 8 s timer. **Files:** `app/foreman/orders/[id]/page.tsx`,
+- [x] **B1 — Delivery-note OCR confirms-delivery flow.** Foreman opens
+      an order detail page, snaps the paper delivery note with
+      `capture="environment"`, `gpt-4o-mini` vision returns
+      `{ order_ref, supplier_name, delivery_date, line_count,
+      confidence }` via `deliveryNoteExtractSchema`, and on
+      `confidence ≥ 0.5` the route flips `orders.status='delivered'`
+      without waiting for the 8 s timer. **Files:**
+      `app/foreman/orders/[id]/page.tsx`,
+      `app/foreman/orders/[id]/ConfirmDeliveryCard.tsx` (client island
+      that handles the camera capture + fetch + result rendering),
       `app/api/orders/[id]/confirm-delivery/route.ts`,
-      `lib/canned/delivery-note.ts` (fallback).
+      `lib/canned/delivery-note.ts`, additions to `lib/schema.ts`
+      (`deliveryNoteExtractSchema`) and `lib/ai.ts` (vision support
+      via `imageBase64` / `imageMimeType`). German microcopy under
+      `delivery.*` + `order_detail.*` in `copy.de.ts`. Order rows in
+      `OrdersListClient.tsx` now link to the detail page.
 - [ ] B2 — Photo-of-shelf restock — not picked.
 - [ ] B3 — Voice ordering — not picked.
 

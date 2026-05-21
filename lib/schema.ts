@@ -145,3 +145,19 @@ export const productPatchInputSchema = z
   });
 
 export type ProductPatchInput = z.infer<typeof productPatchInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Delivery-note OCR (Phase 10 B1) — POST /api/orders/[id]/confirm-delivery
+// ---------------------------------------------------------------------------
+// Vision call extracts a minimal delivery-note signature so the foreman
+// can one-tap-confirm delivery without waiting for the 8 s timer.
+
+export const deliveryNoteExtractSchema = z.object({
+  order_ref: z.string().nullable(),
+  supplier_name: z.string().nullable(),
+  delivery_date: z.string().nullable(),
+  line_count: z.number().int().min(0).nullable(),
+  confidence: z.number().min(0).max(1),
+});
+
+export type DeliveryNoteExtract = z.infer<typeof deliveryNoteExtractSchema>;
