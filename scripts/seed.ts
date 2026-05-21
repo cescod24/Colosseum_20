@@ -289,6 +289,11 @@ async function main() {
   }
 
   // -- orders ---------------------------------------------------------------
+  // Skipped entirely with `--no-orders` (npm run seed:clean) for a truly
+  // empty slate: catalog + kits but ZERO order history, so the foreman's
+  // Aktuell *and* Verlauf start empty.
+  let orderCount = 0;
+  if (!process.argv.includes("--no-orders")) {
   // Foreman A is PPE/consumables-heavy; foreman B is tools/fasteners-heavy.
   const groupsA = new Set([
     "ppe",
@@ -392,6 +397,8 @@ async function main() {
       })),
     );
   }
+    orderCount = plans.length;
+  }
 
   console.log("[seed] done:");
   console.log("  project:", projectId);
@@ -399,7 +406,7 @@ async function main() {
   console.log("  products:", productRows.length);
   console.log("  profiles:", profileRows.length);
   console.log("  kits:", kits.length);
-  console.log("  orders:", plans.length);
+  console.log("  orders:", orderCount);
 }
 
 main().catch((err) => {

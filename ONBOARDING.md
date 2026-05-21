@@ -157,7 +157,8 @@ under `supabase/migrations/` and paste it into the dashboard SQL editor (or
 | Typecheck | `npm run typecheck` |
 | Lint | `npm run lint` |
 | Build | `npm run build` |
-| Re-seed catalog (⚠ wipes & resets the shared DB) | `npm run seed` |
+| Re-seed full demo (⚠ wipes shared DB; catalog + ~20 seeded orders) | `npm run seed` |
+| Clean slate (⚠ wipes shared DB; catalog + kits, **zero orders**) | `npm run seed:clean` |
 | Add shadcn component | `npx shadcn@latest add <name>` |
 
 ## Phase ownership cheat-sheet
