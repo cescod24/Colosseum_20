@@ -25,6 +25,7 @@ import { ChipRow } from "./ChipRow";
 import { KitTile } from "./KitTile";
 import { CartBar } from "./CartBar";
 import { OfflineToggle } from "./OfflineToggle";
+import { VoiceOrderButton } from "./VoiceOrderButton";
 
 const CART_STORAGE_KEY = "siteorder.cart.v1";
 const QUEUE_STORAGE_KEY = "siteorder.cart.queue.v1";
@@ -38,6 +39,8 @@ type Props = {
   lastOrder: ForemanLastOrder | null;
   sets: MaterialSet[];
   mostOrdered: MostOrderedRow[];
+  /** Optional — forwarded to /api/voice so the catalog filter scopes correctly. */
+  projectId?: string;
 };
 
 function loadCart(): CartLine[] {
@@ -102,6 +105,7 @@ export function ForemanHomeClient({
   lastOrder,
   sets,
   mostOrdered,
+  projectId,
 }: Props) {
   const router = useRouter();
   const productById = useMemo(() => {
@@ -468,6 +472,8 @@ export function ForemanHomeClient({
       </Link>
 
       <div className="flex-1" />
+
+      <VoiceOrderButton addToCart={addToCart} projectId={projectId} />
 
       <CartBar
         total={total}
