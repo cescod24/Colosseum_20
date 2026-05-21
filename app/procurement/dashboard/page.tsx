@@ -2,12 +2,54 @@ import { getDemoRole } from "@/lib/role";
 import { resolveProfileForRole } from "@/lib/server/demo-profile";
 import { getServerClient } from "@/lib/supabase/server";
 import { copyEn } from "@/lib/constants/copy.en";
+import { RefreshPoller } from "@/components/RefreshPoller";
 import { SpendBar, type Datum } from "./DashboardCharts";
 
 export const dynamic = "force-dynamic";
 
 const COUNTED_STATUSES = ["pending", "approved", "ordered", "delivered"];
 const TOP_N_SUPPLIERS = 8;
+
+const STATUS_STYLE: Record<string, string> = {
+  draft: "bg-zinc-100 text-zinc-600",
+  pending: "bg-amber-100 text-amber-800",
+  approved: "bg-sky-100 text-sky-800",
+  ordered: "bg-indigo-100 text-indigo-800",
+  delivered: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-700",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+        STATUS_STYLE[status] ?? "bg-zinc-100 text-zinc-600"
+      }`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function fmtDate(iso: string | null) {
+  return iso
+    ? new Date(iso).toLocaleString("en-CH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "—";
+}
+
+type RecapRow = {
+  id: string;
+  status: string;
+  total: number | string;
+  currency: string | null;
+  created_at: string;
+  decided_at: string | null;
+  profiles: { display_name: string } | null;
+  order_items: { qty: number }[] | null;
+};
 
 type Row = {
   qty: number;
@@ -119,8 +161,21 @@ export default async function DashboardPage() {
     .map((f) => ({ name: f.name, spend: round(f.spend) }))
     .sort((a, b) => b.spend - a.spend);
 
+  // Decision recap: every order and where it landed (incl. rejected / draft),
+  // which the spend rollups above deliberately exclude.
+  const { data: recapRaw } = await supabase
+    .from("orders")
+    .select(
+      "id, status, total, currency, created_at, decided_at, profiles!orders_created_by_fkey (display_name), order_items (qty)",
+    )
+    .eq("project_id", profile.project_id)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  const recap = (recapRaw ?? []) as unknown as RecapRow[];
+
   return (
     <section className="space-y-8">
+      <RefreshPoller intervalMs={3000} />
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-zinc-900">
           {copyEn["dashboard.title"]}
@@ -167,6 +222,64 @@ export default async function DashboardPage() {
                   <td className="py-2 text-zinc-900">{f.name}</td>
                   <td className="py-2 text-right font-medium text-zinc-900">
                     {fmtCurrency(f.spend, currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </article>
+
+      <article className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <header className="border-b border-zinc-100 px-5 py-4">
+          <h2 className="text-base font-semibold text-zinc-900">
+            Decision recap
+          </h2>
+          <p className="text-xs text-zinc-500">
+            Every order and where it landed — approved, rejected, in transit,
+            delivered.
+          </p>
+        </header>
+        {recap.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-zinc-400">
+            No orders yet.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-5 py-2 font-medium">Order</th>
+                <th className="px-5 py-2 font-medium">Foreman</th>
+                <th className="px-5 py-2 text-right font-medium">Items</th>
+                <th className="px-5 py-2 text-right font-medium">Total</th>
+                <th className="px-5 py-2 font-medium">Status</th>
+                <th className="px-5 py-2 font-medium">Submitted</th>
+                <th className="px-5 py-2 font-medium">Decided</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recap.map((o) => (
+                <tr key={o.id} className="border-t border-zinc-100">
+                  <td className="px-5 py-2 font-mono text-xs text-zinc-500">
+                    #{o.id.slice(0, 8)}
+                  </td>
+                  <td className="px-5 py-2 text-zinc-700">
+                    {o.profiles?.display_name ?? "—"}
+                  </td>
+                  <td className="px-5 py-2 text-right text-zinc-700">
+                    {(o.order_items ?? []).length}
+                  </td>
+                  <td className="px-5 py-2 text-right font-medium text-zinc-900">
+                    {fmtCurrency(Number(o.total) || 0, o.currency ?? currency)}
+                  </td>
+                  <td className="px-5 py-2">
+                    <StatusBadge status={o.status} />
+                  </td>
+                  <td className="px-5 py-2 text-zinc-500">
+                    {fmtDate(o.created_at)}
+                  </td>
+                  <td className="px-5 py-2 text-zinc-500">
+                    {fmtDate(o.decided_at)}
                   </td>
                 </tr>
               ))}

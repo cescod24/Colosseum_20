@@ -149,11 +149,11 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
             {formatCopy(copyDe["orders.items"], { count: totalCount })}
           </p>
         </div>
-        <span
-          className="text-[10px] uppercase tracking-wider text-zinc-400"
-          title={lastUpdated ? new Date(lastUpdated).toISOString() : undefined}
-        >
-          Live
+        <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-zinc-400">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          {lastUpdated
+            ? `Live · ${new Date(lastUpdated).toLocaleTimeString("de-CH")}`
+            : "Live"}
         </span>
       </header>
 
