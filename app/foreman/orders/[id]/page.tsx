@@ -4,18 +4,27 @@ import { ArrowLeft } from "lucide-react";
 import { getDemoRole } from "@/lib/role";
 import { resolveProfileForRole } from "@/lib/server/demo-profile";
 import { getServerClient } from "@/lib/supabase/server";
+import { lineDecisionsEnabled } from "@/lib/server/orders";
 import { copyDe } from "@/lib/constants/copy.de";
 import { StatusPill, type OrderStatus } from "@/app/foreman/_components/StatusPill";
 import { ConfirmDeliveryCard } from "./ConfirmDeliveryCard";
+import { LineDecisionsList, type LineRow } from "./LineDecisionsList";
 
 export const dynamic = "force-dynamic";
 
+type ProductRef = {
+  name: string;
+  unit: string;
+};
+
 type OrderLine = {
+  id: string;
   qty: number;
-  products: {
-    name: string;
-    unit: string;
-  };
+  line_status?: "approved" | "rejected" | null;
+  decline_reason?: string | null;
+  suggested_qty?: number | string | null;
+  products: ProductRef;
+  suggested_product?: ProductRef | null;
 };
 
 type OrderRow = {
@@ -47,11 +56,15 @@ export default async function ForemanOrderDetail({
 
   const { id } = await params;
   const supabase = getServerClient();
+  const linesEnabled = await lineDecisionsEnabled();
+
+  const select = linesEnabled
+    ? "id, status, total, currency, created_at, created_by, order_items (id, qty, line_status, decline_reason, suggested_qty, products!order_items_product_id_fkey (name, unit), suggested_product:products!order_items_suggested_product_id_fkey (name, unit))"
+    : "id, status, total, currency, created_at, created_by, order_items (id, qty, products (name, unit))";
+
   const { data, error } = await supabase
     .from("orders")
-    .select(
-      "id, status, total, currency, created_at, created_by, order_items (qty, products (name, unit))",
-    )
+    .select(select)
     .eq("id", id)
     .maybeSingle();
 
@@ -61,6 +74,53 @@ export default async function ForemanOrderDetail({
 
   const canConfirm = order.status === "ordered" || order.status === "approved";
   const alreadyDelivered = order.status === "delivered";
+
+  const lineRows: LineRow[] = order.order_items.map((line) => {
+    const suggestedQty =
+      line.suggested_qty === null || line.suggested_qty === undefined
+        ? null
+        : Number(line.suggested_qty);
+    return {
+      id: line.id,
+      productName: line.products.name,
+      unit: line.products.unit,
+      qty: Number(line.qty),
+      lineStatus: (line.line_status ?? "approved") as "approved" | "rejected",
+      declineReason: line.decline_reason ?? null,
+      suggested:
+        line.suggested_product && suggestedQty && suggestedQty > 0
+          ? {
+              productId: "",
+              name: line.suggested_product.name,
+              unit: line.suggested_product.unit,
+              qty: suggestedQty,
+            }
+          : null,
+    };
+  });
+
+  // The client needs the suggested_product_id, which Supabase joins return
+  // as the row id of the joined product. Pull it through a separate select
+  // keyed on order_id so the relational join name stays simple above.
+  if (linesEnabled) {
+    const { data: ids } = await supabase
+      .from("order_items")
+      .select("id, suggested_product_id")
+      .eq("order_id", id);
+    const map = new Map<string, string>(
+      ((ids ?? []) as Array<{ id: string; suggested_product_id: string | null }>)
+        .filter((r) => r.suggested_product_id)
+        .map((r) => [r.id, r.suggested_product_id as string]),
+    );
+    for (const row of lineRows) {
+      if (row.suggested) {
+        row.suggested.productId = map.get(row.id) ?? "";
+      }
+      if (row.suggested && !row.suggested.productId) {
+        row.suggested = null;
+      }
+    }
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-12 pt-4">
@@ -89,16 +149,7 @@ export default async function ForemanOrderDetail({
         <p className="text-sm font-semibold text-zinc-900">
           {copyDe["order_detail.lines"]}
         </p>
-        <ul className="divide-y divide-zinc-100">
-          {order.order_items.map((line, idx) => (
-            <li key={idx} className="flex items-center justify-between py-2 text-sm">
-              <span className="text-zinc-900">{line.products.name}</span>
-              <span className="text-zinc-600">
-                {Number(line.qty)} {line.products.unit}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <LineDecisionsList lines={lineRows} />
       </section>
 
       {(canConfirm || alreadyDelivered) && (
