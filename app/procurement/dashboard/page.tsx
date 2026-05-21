@@ -175,7 +175,7 @@ export default async function DashboardPage() {
 
   return (
     <section className="space-y-8">
-      <RefreshPoller intervalMs={3000} />
+      <RefreshPoller intervalMs={1000} />
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-zinc-900">
           {copyEn["dashboard.title"]}

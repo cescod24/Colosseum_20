@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 //
 // Pause while the tab is hidden so we don't hammer the DB in the background.
 
-export function RefreshPoller({ intervalMs = 3000 }: { intervalMs?: number }) {
+export function RefreshPoller({ intervalMs = 1000 }: { intervalMs?: number }) {
   const router = useRouter();
   useEffect(() => {
     const tick = () => {

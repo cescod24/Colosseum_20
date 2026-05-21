@@ -60,6 +60,9 @@ export const copyEn: Copy = {
   "queue.decision.approved_total": "Approved total",
   "queue.decision.submit": "Submit decision",
   "queue.decision.submitting": "Submitting…",
+  "queue.decision.confirmation_ordered":
+    "✓ Decision applied — handing off to comstruct…",
+  "queue.decision.confirmation_rejected": "✗ Order rejected — clearing…",
 
   "project.title": "Project rules",
   "project.threshold_label": "Auto-approve threshold (CHF)",

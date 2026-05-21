@@ -51,7 +51,7 @@ export default async function ForemanHome() {
 
   return (
     <>
-      <RefreshPoller intervalMs={3000} />
+      <RefreshPoller intervalMs={1000} />
       <ForemanHomeClient
         greeting={profile.display_name}
         catalog={catalog}

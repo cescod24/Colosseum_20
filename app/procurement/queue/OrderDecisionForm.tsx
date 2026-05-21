@@ -64,6 +64,10 @@ export function OrderDecisionForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Optimistic UI: as soon as the server confirms the decision, collapse the
+  // card body to a thin confirmation line. The 1s RefreshPoller on the queue
+  // page removes the whole order from the list shortly after.
+  const [decided, setDecided] = useState<"ordered" | "rejected" | null>(null);
 
   const approvedTotal = useMemo(() => {
     return (
@@ -120,8 +124,29 @@ export function OrderDecisionForm({
         setError(data?.error ?? "Decision failed.");
         return;
       }
+      const data = (await res.json().catch(() => null)) as {
+        status?: "ordered" | "rejected";
+      } | null;
+      setDecided(data?.status ?? "ordered");
       router.refresh();
     });
+  }
+
+  if (decided) {
+    return (
+      <div
+        className={
+          decided === "ordered"
+            ? "border-t border-zinc-100 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-800"
+            : "border-t border-zinc-100 bg-red-50 px-5 py-3 text-sm font-medium text-red-700"
+        }
+        role="status"
+      >
+        {decided === "ordered"
+          ? copyEn["queue.decision.confirmation_ordered"]
+          : copyEn["queue.decision.confirmation_rejected"]}
+      </div>
+    );
   }
 
   return (

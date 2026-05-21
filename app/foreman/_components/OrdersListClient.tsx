@@ -47,7 +47,7 @@ type Props = {
   profileId: string;
 };
 
-const POLL_MS = 3_000;
+const POLL_MS = 1_000;
 
 // In-flight orders the foreman is tracking. Everything else (delivered /
 // rejected) is "Verlauf" (history) and is tucked away by default so the
@@ -105,7 +105,7 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCartCount(readCartCount());
-    const id = setInterval(() => setCartCount(readCartCount()), 3000);
+    const id = setInterval(() => setCartCount(readCartCount()), 1000);
     return () => clearInterval(id);
   }, []);
   const [orders, setOrders] = useState<OrderSummary[]>(initialOrders);
