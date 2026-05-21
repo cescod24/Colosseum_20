@@ -337,47 +337,51 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   profiles, 3 kits/17 items, 20 orders). Rows visible in the dashboard; the
   three kits and their items are present.
 
-### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
-- [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
-  - [ ] **"C-Material erklärt" banner** (German, plain-language; e.g.
+### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[x]`
+- [x] `app/foreman/page.tsx` reads role cookie and renders, top to bottom:
+  - [x] **"C-Material erklärt" banner** (German, plain-language;
         *"Hier bestellst du Kleinmaterial für die Baustelle — Schrauben,
         Handschuhe, Klebeband, Spraydosen. Beton, Stahl, Bewehrung & Schalung
         gehen über deinen Bauleiter."*). Dismissible; dismiss state stored in
         localStorage under `siteorder.explainer.dismissed=1`.
-  - [ ] **"Dein letzter Auftrag"** — most recent order + line items, with
+  - [x] **"Dein letzter Auftrag"** — most recent order + line items, with
         the +/- stepper inline so it's literally one tap to resubmit.
-  - [ ] **"Sets"** row — three tiles from `material_sets` for the current
+  - [x] **"Sets"** row — three tiles from `material_sets` for the current
         project, rendered as large tappable cards (kit name + item count +
         an icon). Tapping a tile pre-fills the cart with that kit's
         `material_set_items` at `default_qty`. Foreman can then tweak with
         steppers/chips before submitting.
-  - [ ] **"Am meisten bestellt auf dieser Baustelle"** — SQL aggregate
-        `SUM(qty) GROUP BY product` over the project, top 5.
-- [ ] Components:
-  - [ ] `Stepper` (≥ 44 px tap targets, no modal).
-  - [ ] `ChipRow` reading unit → chip set from `lib/constants/chips.ts`.
-  - [ ] `KitTile` — name, item count, icon, tap → load kit into cart.
-  - [ ] `ExplainerBanner` — dismissible, localStorage-backed.
-  - [ ] `CartBar` fixed at bottom, shows running total in CHF + "Bestellung
+  - [x] **"Am meisten bestellt auf dieser Baustelle"** — aggregated
+        `SUM(qty) GROUP BY product` over completed orders for the project,
+        top 5.
+- [x] Components:
+  - [x] `Stepper` (≥ 44 px tap targets, no modal).
+  - [x] `ChipRow` reading unit → chip set from `lib/constants/chips.ts`.
+  - [x] `KitTile` — name, item count, icon, tap → load kit into cart.
+  - [x] `ExplainerBanner` — dismissible, localStorage-backed.
+  - [x] `CartBar` fixed at bottom, shows running total in CHF + "Bestellung
         senden · X CHF" button.
-- [ ] **No `unit_price` shown** on line rows. Cart total computed client-side
+- [x] **No `unit_price` shown** on line rows. Cart total computed client-side
       from products fetched server-side.
-- [ ] Cart persisted in `localStorage`; if `!navigator.onLine`, queue the
-      submit + show the "wird gesendet…" badge; flush queue on `online` event.
-- [ ] Submit → POST `/api/orders` → on success redirect to `/orders`.
+- [x] Cart persisted in `localStorage`; if `!navigator.onLine` (or the demo
+      offline toggle is on), queue the submit + show the "wird gesendet…"
+      badge; flush queue on `online` event.
+- [x] Submit → POST `/api/orders` → on success redirect to `/foreman/orders`.
+      *(Minimal `app/api/orders/route.ts` shipped here so the cart works
+      end-to-end; Dev B's Phase 4 will iterate the same handler.)*
 - **Checkpoint:** can build + submit a reorder in well under a minute; the
   banner appears once and stays dismissed; tapping any kit tile populates the
   cart with the kit's items at their default quantities.
 
-### Phase 3 — Order state machine + status view (F2, weight 15)  `[ ]`
-- [ ] `(foreman)/orders/page.tsx`: each order as a horizontal pill
+### Phase 3 — Order state machine + status view (F2, weight 15)  `[x]`
+- [x] `app/foreman/orders/page.tsx`: each order as a horizontal 5-segment pill
       (Draft · Pending · Approved · Ordered · Delivered) matching the mockup.
       Pending rows show "Warte auf Einkauf" subtitle.
-- [ ] Subscribe to `orders` via Supabase Realtime (filter
-      `created_by=eq.<cookie user>`); also poll a `/api/orders` GET every 5 s
-      and merge results client-side (Realtime + polling fallback).
+- [x] Subscribes to `orders` via Supabase Realtime (filter
+      `created_by=eq.<profile id>`); also polls `/api/orders/list` GET every
+      5 s and merges results client-side (Realtime + polling fallback).
 - **Checkpoint:** status pill animates without refresh (after Phase 5 wires
-  approvals).
+  approvals — Slice B work).
 
 ### Phase 4 — Approval rules engine (F3, weight 14)  `[ ]`
 - [ ] `lib/rules.ts` — pure `decide(total, items, rules)` returning
@@ -467,17 +471,19 @@ This phase also **onboards the ACME supplier live** by uploading
   aktivieren" per-row PATCH is **not** wired yet (no DB locally) — the
   visual toggle proves the UI is ready for it.
 
-### Phase 7 — Task-based discovery (F6, weight 11)  `[ ]` (backend done, UI = slice A)
-- [ ] `(foreman)/discover/page.tsx`: **slice A**, not built yet.
-  - [ ] Big-icon grid from `lib/constants/categories.ts` (~8 tiles +
-        "Sonstiges"). Tapping filters product list.
-  - [ ] Search bar placeholder "Material per Aufgabe finden…".
-  - [ ] On submit: run A-material blocklist first → if match, render the
-        friendly redirect ("Beton & Stahl bestellst du über den Bauleiter…")
-        with a button back to categories. Never calls the API.
-  - [ ] Otherwise POST `/api/discover` with `{ task, project_id }` → 3–5
-        cards, each with name + one-line reason + "+" to add to cart.
-  - [ ] Empty result → "Nichts gefunden — probier eine Kategorie."
+### Phase 7 — Task-based discovery (F6, weight 11)  `[x]` (backend = slice C, UI = slice A)
+- [x] `app/foreman/discover/page.tsx`: **slice A**, shipped on `dev-a`.
+  - [x] Big-icon grid from `lib/constants/categories.ts` (9 tiles incl.
+        "Sonstiges/misc"). Tapping filters the project's catalog inline.
+  - [x] Search bar placeholder "z.B. Fenster abdichten".
+  - [x] On submit: runs the A-material blocklist client-side first → if
+        match, renders the friendly redirect with a "Zurück zu den Kategorien"
+        button. **Never calls the API.**
+  - [x] Otherwise POSTs `{ task, project_id }` to `/api/discover` and renders
+        ≤ 5 cards with name + one-line German reason + "+" to add to cart.
+        Reuses the same localStorage cart as the home so submit goes through
+        the shared CartBar.
+  - [x] Empty result → "Nichts gefunden — probier eine Kategorie."
 - [x] `/api/discover`: fetch project's active catalog → pass to OpenAI with
       strict prompt:
   - JSON `{ items: [{ supplier_sku, reason }] }`, ≤ 5 items (the route
@@ -638,8 +644,32 @@ them:
   profiles/orders/kits + the hazardous fixture. **Run against the live
   project:** 33 suppliers, 99 products (C071 blocked), 3 profiles, 3 kits
   (17 items), 20 orders. Re-running is idempotent (counts stable).
-- _Phase 2 —_ (not started)
-- _Phase 3 —_ (not started)
+- _Phase 2 —_ **done** (Slice A, merged from `dev-a`). Foreman home wired up
+  under `app/foreman/page.tsx`: explainer banner (localStorage-dismissible
+  via `useSyncExternalStore`), "Dein letzter Auftrag" with inline stepper +
+  chip-row per line, three kit tiles loading from `material_sets`, top-5
+  most-ordered grid, sticky cart bar with running CHF total. Offline toggle
+  + localStorage queue with `online` event flush. Submit POSTs the cart to
+  `/api/orders` (Dev B's Phase 4 handler) then redirects to
+  `/foreman/orders`. Foreman never sees `unit_price` per line.
+- _Phase 3 —_ **done** (Slice A, merged from `dev-a`). `app/foreman/orders/
+  page.tsx` renders a 5-segment status pill per order (Draft · Pending ·
+  Approved · Ordered · Delivered) and subscribes to Supabase Realtime on
+  `orders` filtered to the caller's profile, with a 5 s `/api/orders/list`
+  polling fallback (Dev B-owned endpoint — client tolerates a 404 until
+  Dev B ships it). Pending rows show the "Warte auf Einkauf" subtitle.
+- _Phase 7 (UI) —_ **done** (Slice A, merged from `dev-a`).
+  `app/foreman/discover/page.tsx` + `DiscoverClient` + `CategoryGrid`:
+  9-tile icon grid from `categories.ts` (canonical keys: fasteners /
+  electrical / ppe / tools / covers_tape / sealants / paint /
+  cleaning_chemicals / misc), search bar with client-side `isABlockedTerm`
+  short-circuit, POSTs `{task, project_id}` to Dev C's `/api/discover`,
+  validates the response against `discoverResponseSchema`, renders ≤ 5
+  cards with German "why this fits" reasons + plus button to cart,
+  "Nichts gefunden" empty state, and the friendly A-material redirect with
+  a "Zurück zu den Kategorien" button. Reuses the same `CartBar` +
+  localStorage cart as the home, so a discover → home → submit flow shares
+  the cart end-to-end.
 - _Phase 4 —_ (not started)
 - _Phase 5 —_ (not started)
 - _Phase 6 —_ **done** (slice C, merged to `main`). `/api/ingest` (CSV + PDF),

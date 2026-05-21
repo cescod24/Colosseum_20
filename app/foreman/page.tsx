@@ -1,29 +1,60 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-// Placeholder — the real foreman home lands in Phase 2 (banner, "letzter
-// Auftrag", kit tiles, "Am meisten bestellt", cart bar).
+import { getDemoRole } from "@/lib/role";
+import {
+  loadForemanOrders,
+  loadLastOrderForForeman,
+  loadMaterialSets,
+  loadMostOrderedForProject,
+  loadProfileForRole,
+  loadProjectCatalog,
+  type CatalogProduct,
+} from "@/lib/data/foreman";
 
-export default function ForemanHomePlaceholder() {
-  return (
-    <main className="flex flex-1 items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md space-y-3 rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-zinc-200">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Foreman home — Platzhalter
-        </p>
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          Phase 2 ist noch nicht gebaut.
+import { ForemanHomeClient } from "./_components/ForemanHomeClient";
+
+export const dynamic = "force-dynamic";
+
+export default async function ForemanHome() {
+  const role = await getDemoRole();
+  if (!role || role === "procurement") redirect("/");
+
+  const profile = await loadProfileForRole(role);
+  if (!profile) {
+    return (
+      <main className="mx-auto max-w-md px-4 py-12 text-center">
+        <h1 className="text-lg font-semibold text-zinc-900">
+          Profil nicht gefunden
         </h1>
-        <p className="text-sm text-zinc-600">
-          Hier landet später die Bestelloberfläche (Banner, letzter Auftrag,
-          Sets, „Am meisten bestellt“, Warenkorb).
+        <p className="mt-2 text-sm text-zinc-600">
+          Wahrscheinlich fehlt noch ein <code>npm run seed</code>. Sobald die
+          Cloud-Datenbank initialisiert ist, erscheint diese Seite mit deinem
+          letzten Auftrag.
         </p>
-        <Link
-          href="/"
-          className="inline-block rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900 hover:border-zinc-400"
-        >
-          Zurück zur Rollenwahl
-        </Link>
-      </div>
-    </main>
+      </main>
+    );
+  }
+
+  const catalog = await loadProjectCatalog(profile.project_id);
+  const catalogById = new Map<string, CatalogProduct>(
+    catalog.map((p) => [p.id, p]),
+  );
+  const [lastOrder, sets, mostOrdered] = await Promise.all([
+    loadLastOrderForForeman(profile.id, catalogById),
+    loadMaterialSets(profile.project_id, catalogById),
+    loadMostOrderedForProject(profile.project_id, catalogById, 5),
+  ]);
+  // touch the helper so a future Phase 3 commit can re-use it without a
+  // dangling import dance.
+  void loadForemanOrders;
+
+  return (
+    <ForemanHomeClient
+      greeting={profile.display_name}
+      catalog={catalog}
+      lastOrder={lastOrder}
+      sets={sets}
+      mostOrdered={mostOrdered}
+    />
   );
 }
