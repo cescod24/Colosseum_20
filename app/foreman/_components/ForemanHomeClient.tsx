@@ -87,7 +87,11 @@ async function submitToServer(items: CartLine[]) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`POST /api/orders failed: ${res.status} ${text}`);
+    const err = new Error(`POST /api/orders failed: ${res.status} ${text}`) as Error & {
+      status?: number;
+    };
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -131,7 +135,11 @@ export function ForemanHomeClient({
   useEffect(() => {
     if (seededRef.current) return;
     seededRef.current = true;
-    const persisted = loadCart();
+    // Drop any persisted cart line whose product is no longer in the live
+    // catalog — e.g. after the DB was re-seeded with fresh UUIDs. Without
+    // this the foreman would submit "unknown product" lines the server
+    // rejects with a 400.
+    const persisted = loadCart().filter((l) => productById.has(l.product_id));
     let nextCart: CartLine[] | null = null;
     if (persisted.length) {
       nextCart = persisted;
@@ -147,7 +155,7 @@ export function ForemanHomeClient({
     if (nextCart) setCart(nextCart);
     if (qLen > 0) setQueueLen(qLen);
     if (offline) setBrowserOnline(false);
-  }, [lastOrder]);
+  }, [lastOrder, productById]);
 
   // Wire up the online/offline change listeners (these only fire on transitions
   // after mount — setState in the callbacks is fine, not setState-in-effect).
@@ -180,8 +188,16 @@ export function ForemanHomeClient({
         try {
           await submitToServer(q.items);
         } catch (err) {
-          console.warn("[foreman] queue flush failed", err);
-          remaining.push(q);
+          const status = (err as { status?: number }).status;
+          if (status !== undefined && status >= 400 && status < 500) {
+            // Permanent rejection (e.g. a stale product after a re-seed).
+            // Retrying would loop forever — drop it instead.
+            console.warn("[foreman] dropping unsubmittable queued order", err);
+          } else {
+            // Transient (offline / 5xx) — keep it for the next flush.
+            console.warn("[foreman] queue flush retry", err);
+            remaining.push(q);
+          }
         }
       }
       if (cancelled) return;
