@@ -273,9 +273,12 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - [x] Add `.env.example` with placeholder names only:
       `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
       `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`.
-- [ ] Create `.env.local` (gitignored) — values supplied by the user.
+- [x] Create `.env.local` (gitignored) — values supplied by the user.
       (The repo can't ship secrets — each dev creates their own
       `.env.local` from `.env.example` before running `npm run seed`.)
+      *Per-dev file; ticked here because Dev B's local `.env.local` exists
+      and the dev server boots with the five env values loaded. Each
+      teammate ticks this independently.*
 - [x] Add npm scripts: `dev`, `lint`, `typecheck` (`tsc --noEmit`), `seed`
       (stub initially). (`seed` uses `tsx --env-file=.env.local`.)
 - [x] Create the empty constants files in `lib/constants/`.
