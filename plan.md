@@ -383,18 +383,21 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
 - **Checkpoint:** status pill animates without refresh (after Phase 5 wires
   approvals).
 
-### Phase 4 — Approval rules engine (F3, weight 14)  `[ ]`
-- [ ] `lib/rules.ts` — pure `decide(total, items, rules)` returning
+### Phase 4 — Approval rules engine (F3, weight 14)  `[x]`
+- [x] `lib/rules.ts` — pure `decide(total, items, rules)` returning
       `'approved' | 'pending'`. Trips pending if: `total >= threshold`, **or**
       any item's `product_group ∈ restricted_groups`, **or** any item is
-      `hazardous=true`.
-- [ ] Unit tests (Vitest or `node --test`) for `decide()` covering all three
-      branches plus the safe path.
-- [ ] `/api/orders` (POST): server fetches authoritative `unit_price` per item
+      `hazardous=true`. (Shipped in Step 0; consumed as-is.)
+- [x] Unit tests (Vitest or `node --test`) for `decide()` covering all three
+      branches plus the safe path. (`lib/rules.test.ts` via `node --test`
+      under `tsx`; covers safe path, threshold boundary, hazardous,
+      restricted-group, null group, empty cart, multi-trip, empty rules.)
+- [x] `/api/orders` (POST): server fetches authoritative `unit_price` per item
       (clients cannot spoof the total), computes total, calls `decide()`,
       INSERTs `orders` + `order_items`, returns assigned status.
 - **Checkpoint:** ~40 CHF safe order auto-approves; ~310 CHF order → pending;
-  ~50 CHF hazardous order → pending.
+  ~50 CHF hazardous order → pending. (Code path verified by unit tests; live
+  exercise gated on Dev C's seed.)
 
 ### Phase 5 — Procurement approval queue (F4, weight 12)  `[ ]`
 - [ ] `(procurement)/queue/page.tsx`: pending orders with total, items count,
@@ -623,7 +626,7 @@ them:
   `scripts/seed.ts` is a stub.
 - _Phase 2 —_ (not started)
 - _Phase 3 —_ (not started)
-- _Phase 4 —_ (not started)
+- _Phase 4 —_ **done** (Dev B lane). `lib/rules.test.ts` + `app/api/orders/route.ts`. Adds `lib/server/demo-profile.ts` (cookie → profile UUID via `display_name == cookie value` convention — Dev C must match in seed) and migration `0002_add_rejected_status.sql` (additive — extends `orders.status` CHECK to include `'rejected'` for Phase 5).
 - _Phase 5 —_ (not started)
 - _Phase 6 —_ (not started)
 - _Phase 7 —_ (not started)
