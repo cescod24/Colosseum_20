@@ -343,34 +343,38 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   *(Code shipped; the user must run it themselves once their `.env.local`
   has the Supabase Cloud credentials.)*
 
-### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
-- [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
-  - [ ] **"C-Material erklärt" banner** (German, plain-language; e.g.
+### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[x]`
+- [x] `app/foreman/page.tsx` reads role cookie and renders, top to bottom:
+  - [x] **"C-Material erklärt" banner** (German, plain-language;
         *"Hier bestellst du Kleinmaterial für die Baustelle — Schrauben,
         Handschuhe, Klebeband, Spraydosen. Beton, Stahl, Bewehrung & Schalung
         gehen über deinen Bauleiter."*). Dismissible; dismiss state stored in
         localStorage under `siteorder.explainer.dismissed=1`.
-  - [ ] **"Dein letzter Auftrag"** — most recent order + line items, with
+  - [x] **"Dein letzter Auftrag"** — most recent order + line items, with
         the +/- stepper inline so it's literally one tap to resubmit.
-  - [ ] **"Sets"** row — three tiles from `material_sets` for the current
+  - [x] **"Sets"** row — three tiles from `material_sets` for the current
         project, rendered as large tappable cards (kit name + item count +
         an icon). Tapping a tile pre-fills the cart with that kit's
         `material_set_items` at `default_qty`. Foreman can then tweak with
         steppers/chips before submitting.
-  - [ ] **"Am meisten bestellt auf dieser Baustelle"** — SQL aggregate
-        `SUM(qty) GROUP BY product` over the project, top 5.
-- [ ] Components:
-  - [ ] `Stepper` (≥ 44 px tap targets, no modal).
-  - [ ] `ChipRow` reading unit → chip set from `lib/constants/chips.ts`.
-  - [ ] `KitTile` — name, item count, icon, tap → load kit into cart.
-  - [ ] `ExplainerBanner` — dismissible, localStorage-backed.
-  - [ ] `CartBar` fixed at bottom, shows running total in CHF + "Bestellung
+  - [x] **"Am meisten bestellt auf dieser Baustelle"** — aggregated
+        `SUM(qty) GROUP BY product` over completed orders for the project,
+        top 5.
+- [x] Components:
+  - [x] `Stepper` (≥ 44 px tap targets, no modal).
+  - [x] `ChipRow` reading unit → chip set from `lib/constants/chips.ts`.
+  - [x] `KitTile` — name, item count, icon, tap → load kit into cart.
+  - [x] `ExplainerBanner` — dismissible, localStorage-backed.
+  - [x] `CartBar` fixed at bottom, shows running total in CHF + "Bestellung
         senden · X CHF" button.
-- [ ] **No `unit_price` shown** on line rows. Cart total computed client-side
+- [x] **No `unit_price` shown** on line rows. Cart total computed client-side
       from products fetched server-side.
-- [ ] Cart persisted in `localStorage`; if `!navigator.onLine`, queue the
-      submit + show the "wird gesendet…" badge; flush queue on `online` event.
-- [ ] Submit → POST `/api/orders` → on success redirect to `/orders`.
+- [x] Cart persisted in `localStorage`; if `!navigator.onLine` (or the demo
+      offline toggle is on), queue the submit + show the "wird gesendet…"
+      badge; flush queue on `online` event.
+- [x] Submit → POST `/api/orders` → on success redirect to `/foreman/orders`.
+      *(Minimal `app/api/orders/route.ts` shipped here so the cart works
+      end-to-end; Dev B's Phase 4 will iterate the same handler.)*
 - **Checkpoint:** can build + submit a reorder in well under a minute; the
   banner appears once and stays dismissed; tapping any kit tile populates the
   cart with the kit's items at their default quantities.
@@ -627,7 +631,13 @@ them:
   hazardous order. Constants populated: `categories.ts` (8 + Sonstiges),
   `chips.ts` (per-unit presets), `copy.de.ts` (foreman strings),
   `copy.en.ts` (queue strings).
-- _Phase 2 —_ (not started)
+- _Phase 2 —_ **done** (Slice A). Foreman home wired up under
+  `app/foreman/page.tsx`: explainer banner (localStorage-dismissible), last
+  order with inline stepper + chip-row, three kit tiles loading from
+  `material_sets`, top-5 most-ordered grid, sticky cart bar with running
+  CHF total. Offline toggle + localStorage queue with `online` event flush.
+  Submit POSTs `/api/orders` (minimal handler shipped here; Dev B's Phase 4
+  iterates it) then redirects to `/foreman/orders`.
 - _Phase 3 —_ (not started)
 - _Phase 4 —_ (not started)
 - _Phase 5 —_ (not started)
