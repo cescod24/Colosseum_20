@@ -3,7 +3,7 @@ import { getDemoRole } from "@/lib/role";
 import { resolveProfileForRole } from "@/lib/server/demo-profile";
 import { getServerClient } from "@/lib/supabase/server";
 
-// GET /api/orders/list — 5 s polling fallback for the foreman's orders page.
+// GET /api/orders/list — 3 s polling fallback for the foreman's orders page.
 // Slice A's OrdersListClient subscribes via Supabase Realtime first and only
 // merges this endpoint's results if it returns 200. Response shape mirrors
 // `OrderSummary` in app/foreman/_components/OrdersListClient.tsx:12-19.

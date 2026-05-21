@@ -23,7 +23,7 @@ type Props = {
   profileId: string;
 };
 
-const POLL_MS = 5_000;
+const POLL_MS = 3_000;
 
 function mergeOrders(
   current: OrderSummary[],
@@ -100,8 +100,8 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
     };
   }, [profileId]);
 
-  // 5 s polling fallback. Owned by Dev B (`api/orders/**`); until it lands
-  // we 404 gracefully and rely on Realtime alone.
+  // 3 s polling fallback against GET /api/orders/list (now merged). If the
+  // endpoint ever 404s we degrade gracefully and rely on Realtime alone.
   useEffect(() => {
     let cancelled = false;
     let endpointMissing = false;
