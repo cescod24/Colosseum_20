@@ -77,6 +77,10 @@ export const copyDe: Copy = {
   "delivery.field_lines": "Positionen",
   "delivery.field_confidence": "Erkennungsgenauigkeit",
 
+  "voice.start": "Per Sprache suchen",
+  "voice.stop": "Aufnahme stoppen",
+  "voice.retry": "Erneut versuchen",
+
   "offline.toggle_on": "Offline-Modus simulieren",
   "offline.toggle_off": "Wieder online",
 

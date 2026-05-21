@@ -18,6 +18,7 @@ import {
 
 import { CategoryGrid } from "./CategoryGrid";
 import { CartBar } from "./CartBar";
+import { VoiceSearch } from "./VoiceSearch";
 
 type CartLine = { product_id: string; qty: number };
 
@@ -236,6 +237,13 @@ export function DiscoverClient({ projectId, catalog }: Props) {
           onChange={(e) => setTask(e.target.value)}
           placeholder={copyDe["discover.search_placeholder"]}
           className="flex-1 bg-transparent text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
+        />
+        <VoiceSearch
+          onTranscript={(transcript) => {
+            setTask(transcript);
+            void runSearch(transcript);
+          }}
+          disabled={state.kind === "searching"}
         />
         <button
           type="submit"

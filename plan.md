@@ -1159,15 +1159,17 @@ For a fresh chat picking up §10:
       architecture-slide conversation from "trust us" to "here it
       is." Paste the URL into `pitch.md` §6 and `plan.md` §10.A2
       when done.
-- [ ] **11.B — Voice ordering on `/foreman/discover` (B3 add-on,
+- [x] **11.B — Voice ordering on `/foreman/discover` (B3 add-on,
       Dev B lane).** `app/foreman/_components/VoiceSearch.tsx` is an
       additive client component that uses the browser's
       `SpeechRecognition` (lang `de-CH`), pipes the transcript into
-      the existing search input, and triggers the existing
-      `/api/discover` POST. **Feature-detects** so the button hides
-      on Firefox / unsupported browsers. Pairs with B1's OCR as the
-      second on-stage wow moment ("ich brauch 50 Schrauben und
-      Handschuhe" → cards in 8 s). Backend unchanged.
+      the existing search input, and triggers `runSearch(transcript)`
+      directly so the A-material blocklist + `/api/discover` POST
+      flow remains unchanged. **Feature-detects** on
+      `window.SpeechRecognition || webkitSpeechRecognition` and
+      hides on unsupported browsers (Firefox). New microcopy under
+      `voice.*` in `copy.de.ts`. DiscoverClient.tsx import + render
+      is the only Slice A file touched.
 - [ ] **11.C — Re-seed the shared cloud DB** *(user task)*. Smoke
       tests at the end of the §10 session confirmed `orders` is
       empty after `npm run seed:clean` (commit `cdf8d07`). Before
