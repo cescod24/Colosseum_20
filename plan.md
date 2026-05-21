@@ -1,12 +1,64 @@
 # plan.md — Site Order build plan (with checkboxes)
 
-> **For a future Claude Code chat:** read `CLAUDE.md`, `SPEC.md`,
-> `C-Materials_Ordering_PRD.md`, `sample.csv`, and `site_order_foreman_flow_mockup.html`
-> first (project root). Then work through this file phase by phase, ticking
-> checkboxes as you go. After each phase: run `npm run typecheck` + `npm run lint`,
-> confirm the app builds, summarise changes, commit, and stop for review before
-> the next phase. **Do not** widen scope beyond what's listed here; deferred items
-> are listed at the bottom.
+> **For a future Claude Code chat:** read `ONBOARDING.md` first (it tells you
+> where the previous Claude session stopped and which slice you are picking
+> up), then `CLAUDE.md`, this file, `C-Materials_Ordering_PRD.md`,
+> `data/sample.csv`, and `site_order_foreman_flow_mockup.html`. Then work
+> through this file phase by phase, ticking checkboxes as you go. After each
+> phase: run `npm run typecheck` + `npm run lint` + `npm run build`,
+> summarise changes, commit, and stop for review before the next phase.
+> **Do not** widen scope beyond what's listed here; deferred items are at the
+> bottom.
+
+> **Stack decision (locked):** Custom Next.js 16+ (App Router) on Vercel +
+> Supabase Cloud + Anthropic SDK. **Lovable was evaluated and dropped** so
+> we keep real server-side route handlers for AI/secret-bearing code and
+> avoid the no-separate-server constraint of Lovable's React+Supabase
+> generator. The trade is a slower start, paid for in faster iteration
+> afterwards.
+
+---
+
+## 0. Team workflow — Step 0 then three-way split
+
+This is a 3-developer hackathon. Step 0 is single-person work that lands on
+`main` and unblocks the rest of the team. Once it's in, three streams run in
+parallel against the locked schema + locked `lib/` surface.
+
+**Step 0 — Dev A alone (~30–45 min):**
+
+- Phase 0 scaffold (Next.js, deps, `.env.example`, role switcher, `data/`
+  move, CLAUDE.md fix).
+- The **schema half of Phase 1**: `supabase/migrations/0001_init.sql` with
+  every table, every CHECK, every index, and every RLS policy.
+- Typed stubs (signatures only, no real logic) for every shared module the
+  other devs will import on day one:
+  - `lib/constants/{categories,chips,copy.de,copy.en,blocklist}.ts`
+  - `lib/schema.ts` — Zod schemas for AI outputs and order submissions
+  - `lib/rules.ts` — pure `decide()` for the approval engine
+  - `lib/anthropic.ts` — wrapped client (timeout + canned fallback)
+  - `lib/role.ts` — `x-demo-user` cookie helpers
+  - `lib/supabase/{server,browser}.ts` — service-role and anon clients
+
+Anything that three people would otherwise collide on (table shape, the Zod
+shape of an ingestion row, the `decide()` signature, the constants files
+imported by every screen) MUST be agreed in Step 0 and pushed to `main`
+**before** the three streams begin. After this commit lands, **branch off**.
+
+**After Step 0 — three parallel slices:**
+
+- **Slice A — Foreman flow (Dev A):** Phase 1 data half (seed) + Phase 2
+  (foreman home: banner + last order + kit tiles + most-ordered + cart) +
+  Phase 3 (status pills + Realtime).
+- **Slice B — Procurement flow (Dev B):** Phase 4 (rules engine end-to-end:
+  `POST /api/orders`) + Phase 5 (approval queue + project config + mocked
+  comstruct handoff).
+- **Slice C — Ingestion + discovery (Dev C):** Phase 6 (CSV/PDF ingest with
+  Anthropic + review screen) + Phase 7 (task-based discovery + A-material
+  redirect).
+
+Stretch (Phases 8 / 9) is picked up by whichever slice lands first.
+Phase 10 stays cut.
 
 ---
 
@@ -210,42 +262,51 @@ After **every** phase: run `npm run typecheck && npm run lint`, ensure the app
 builds, write a one-paragraph summary, commit with a descriptive message, then
 **stop** for review.
 
-### Phase 0 — Scaffold  `[ ]`
-- [ ] Initialise Next.js 14+ (App Router) + TypeScript + Tailwind + shadcn/ui.
-- [ ] Install: `@anthropic-ai/sdk`, `@supabase/supabase-js`,
+### Phase 0 — Scaffold  `[x]`
+- [x] Initialise Next.js 14+ (App Router) + TypeScript + Tailwind + shadcn/ui.
+      (Shipped Next.js 16.2.6 + React 19 + Tailwind v4 + shadcn/ui `init`
+      with `components/ui/button.tsx` and `lib/utils.ts`.)
+- [x] Install: `@anthropic-ai/sdk`, `@supabase/supabase-js`,
       `@supabase/ssr`, `papaparse`, `zod`, `recharts`, `lucide-react`.
-- [ ] Add `.env.example` with placeholder names only:
+      (Also `@types/papaparse` and `tsx` as devDeps for the seed script.)
+- [x] Add `.env.example` with placeholder names only:
       `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
       `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`.
 - [ ] Create `.env.local` (gitignored) — values supplied by the user.
-- [ ] Add npm scripts: `dev`, `lint`, `typecheck` (`tsc --noEmit`), `seed`
-      (stub initially).
-- [ ] Create the empty constants files in `lib/constants/`.
-- [ ] **Fix `CLAUDE.md`**: replace `npx supabase db reset` with the
+      (The repo can't ship secrets — each dev creates their own
+      `.env.local` from `.env.example` before running `npm run seed`.)
+- [x] Add npm scripts: `dev`, `lint`, `typecheck` (`tsc --noEmit`), `seed`
+      (stub initially). (`seed` uses `tsx --env-file=.env.local`.)
+- [x] Create the empty constants files in `lib/constants/`.
+- [x] **Fix `CLAUDE.md`**: replace `npx supabase db reset` with the
       cloud-equivalent (`npx supabase db push` against the linked project, or
       apply via the Supabase dashboard SQL editor). Add an explicit line:
       *"Service-role key is server-only; the browser uses the anon key
       exclusively."*
-- [ ] Add `lib/role.ts` — set/read an `x-demo-user` cookie with the values
+- [x] Add `lib/role.ts` — set/read an `x-demo-user` cookie with the values
       `foreman-a | foreman-b | procurement`, plus a tiny UI on `/` to switch.
-- [ ] Create `data/` directory and **move** `sample.csv` and
+- [x] Create `data/` directory and **move** `sample.csv` and
       `fake_contract_products_with_logo.pdf` into it (they currently sit at
       repo root). Leave `Application_Designs_-_2026-04-18T102930.193.pdf` at
       repo root — it's a reference, not a fixture.
 - **Checkpoint:** `npm run dev` serves a placeholder home page with the
   role switcher; `data/` contains the CSV and the clean PDF.
+  `npm run build` produces three routes: `/`, `/foreman`,
+  `/procurement/queue` (the foreman/procurement screens are placeholders
+  pending Phases 2/5).
 
-### Phase 1 — Data model + seed  `[ ]`
-- [ ] Write `supabase/migrations/0001_init.sql`:
-  - [ ] Tables: `projects`, `suppliers`, `products`, `project_products`,
+### Phase 1 — Data model + seed  `[ ]` (schema half done; seed half pending)
+- [x] Write `supabase/migrations/0001_init.sql`:
+  - [x] Tables: `projects`, `suppliers`, `products`, `project_products`,
         `material_sets`, `material_set_items`, `orders`, `order_items`,
         `approval_rules`, `profiles`, `mock_comstruct_orders`.
-  - [ ] `orders.status` CHECK constraint:
+  - [x] `orders.status` CHECK constraint:
         `('draft','pending','approved','ordered','delivered')`.
-  - [ ] `products.status` CHECK: `('active','review')`.
-  - [ ] Indexes: `orders(project_id, status)`, `order_items(order_id)`,
-        `products(supplier_id)`, `project_products(project_id, product_id)`.
-  - [ ] Enable RLS on every user-facing table; write policies as if auth were
+  - [x] `products.status` CHECK: `('active','review')`.
+  - [x] Indexes: `orders(project_id, status)`, `order_items(order_id)`,
+        `products(supplier_id)`, `project_products(project_id, product_id)`
+        (plus a few more — see the migration).
+  - [x] Enable RLS on every user-facing table; write policies as if auth were
         real (foreman sees own project + own orders; procurement sees their
         project). Note in a SQL comment that the demo runs with service role.
 - [ ] Write `scripts/seed.ts` (idempotent — TRUNCATE … CASCADE then insert):
@@ -551,8 +612,15 @@ them:
 
 ## 8. Phase progress log (append to as you go)
 
-- _Phase 0 —_ (not started)
-- _Phase 1 —_ (not started)
+- _Phase 0 —_ **done** (Step 0 commit). Next.js 16 + TS + Tailwind v4 +
+  shadcn/ui scaffold; `lib/role.ts` cookie helpers + role-switcher landing
+  at `/`; `data/sample.csv` and `data/fake_contract_products_with_logo.pdf`
+  moved; CLAUDE.md rewritten for cloud Supabase + service-role boundary;
+  Lovable references removed across the docs.
+- _Phase 1 —_ **schema half done** (Step 0 commit). Full
+  `supabase/migrations/0001_init.sql` with every table, CHECK, index, and
+  RLS policy. Seed half (Dev A, Slice A) still pending —
+  `scripts/seed.ts` is a stub.
 - _Phase 2 —_ (not started)
 - _Phase 3 —_ (not started)
 - _Phase 4 —_ (not started)
