@@ -267,6 +267,48 @@ zero live API risk.
 
 ---
 
-*Last updated automatically when §10 boxes are ticked. If you're a
-fresh Claude session reading this for the first time, also read
-`plan.md` §10 and §10.8.*
+*Last updated automatically when §10/§11 boxes are ticked. If you're
+a fresh Claude session reading this for the first time, also read
+`plan.md` §10, §11, and §11.6.*
+
+---
+
+## 11. Scale (50k SKUs) — what v2 ships
+
+A slide-ready honest answer to the killer question: *"what happens
+when you give Stefan Würth's full DACH catalog?"*
+
+**Today (demo).** 99 SKUs across 33 suppliers + Häfele's 12-line
+mock. `/api/discover` ships the project's active catalog to
+`gpt-4o-mini` as text and lets the model rank ≤5 items. Works clean
+at hackathon scale; would hit OpenAI's token budget above ~2 k SKUs.
+
+**v2 (the slide).** Three changes, no rewrites, ~1 sprint each:
+
+1. **pgvector embeddings on `products`.** One
+   `embedding vector(1536)` column, populated at ingest with
+   `text-embedding-3-small`. Replace the prompt's catalog dump with
+   a cosine-distance Top-N retrieval against the foreman's task
+   string. Drops the per-query token cost by ~50× and stays
+   sub-second at 50k SKUs.
+2. **Per-trade narrowing before retrieval.** Foreman profiles already
+   carry `trade` (PPE/consumables-heavy, tools/fasteners-heavy).
+   Filter the embedding search by `products.trade IN (foreman.trade,
+   NULL)` first — typical narrowing 50k → 5k → vector search.
+3. **Procurement-curated "Standard list" per project.** Anna Keller
+   marks ~500 SKUs as "preferred for Baustelle Zürich-West" through
+   `/procurement/catalog` (add an `is_standard` flag on
+   `project_products`). Foreman discovery prefers standard items;
+   non-standard appears behind a "Mehr zeigen" expander. Solves
+   both the scale problem AND the "Stefan needs guidance" problem
+   in one schema change.
+
+**One slide bullet:** "Today: 99 SKUs, single-prompt. Tomorrow:
+pgvector + per-trade + procurement curation. Same UI, same
+behaviour, 50k SKUs."
+
+---
+
+*The v2 implementation skeleton lives in `plan.md` §11.G. None of
+the v2 pieces are in the repo yet — this is intentional pitch
+material.*

@@ -1049,7 +1049,7 @@ multimodal model already in `lib/ai.ts`.
       `delivery.*` + `order_detail.*` in `copy.de.ts`. Order rows in
       `OrdersListClient.tsx` now link to the detail page.
 - [ ] B2 — Photo-of-shelf restock — not picked.
-- [ ] B3 — Voice ordering — not picked.
+- [ ] B3 — Voice ordering — **moved to §11.B (shipped 2026-05-22)**.
 
 ### 10.3 Phase C — Second supplier channel (kills the "narrated only" gap)
 
@@ -1199,11 +1199,13 @@ For a fresh chat picking up §10:
 
 ### 11.4 Tier 3 — pre-empt the killer questions
 
-- [ ] **11.G — Scale-honesty slide** *(user task; I can draft
-      markdown)*. Slide 4.5 or appendix in the deck: "what about
-      50k SKUs?" → pgvector + per-trade narrowing + procurement
-      curation. Pre-empts the "your prompt sends the whole catalog
-      to OpenAI" question that scrapes 9/10 procurement-ML pitches.
+- [x] **11.G — Scale-honesty slide** *(markdown drafted; user
+      pastes into slides)*. Section "Scale (50k SKUs) — what v2
+      ships" appended to `pitch.md`. Covers pgvector embeddings,
+      per-trade narrowing, and procurement-side curation of a
+      "standard list" per project. Honest framing: "live demo
+      runs on 99 SKUs; here's the path to 50k." Drop straight
+      into the deck after slide 4.
 - [x] **11.H — Refresh canned delivery-note timestamp (Dev B
       lane).** Bumped `delivery_date` (and the date inside the
       `order_ref`) in `lib/canned/delivery-note.ts` from
