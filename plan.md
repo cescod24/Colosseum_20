@@ -379,15 +379,15 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   banner appears once and stays dismissed; tapping any kit tile populates the
   cart with the kit's items at their default quantities.
 
-### Phase 3 — Order state machine + status view (F2, weight 15)  `[ ]`
-- [ ] `(foreman)/orders/page.tsx`: each order as a horizontal pill
+### Phase 3 — Order state machine + status view (F2, weight 15)  `[x]`
+- [x] `app/foreman/orders/page.tsx`: each order as a horizontal 5-segment pill
       (Draft · Pending · Approved · Ordered · Delivered) matching the mockup.
       Pending rows show "Warte auf Einkauf" subtitle.
-- [ ] Subscribe to `orders` via Supabase Realtime (filter
-      `created_by=eq.<cookie user>`); also poll a `/api/orders` GET every 5 s
-      and merge results client-side (Realtime + polling fallback).
+- [x] Subscribes to `orders` via Supabase Realtime (filter
+      `created_by=eq.<profile id>`); also polls `/api/orders/list` GET every
+      5 s and merges results client-side (Realtime + polling fallback).
 - **Checkpoint:** status pill animates without refresh (after Phase 5 wires
-  approvals).
+  approvals — Slice B work).
 
 ### Phase 4 — Approval rules engine (F3, weight 14)  `[ ]`
 - [ ] `lib/rules.ts` — pure `decide(total, items, rules)` returning
@@ -638,7 +638,11 @@ them:
   CHF total. Offline toggle + localStorage queue with `online` event flush.
   Submit POSTs `/api/orders` (minimal handler shipped here; Dev B's Phase 4
   iterates it) then redirects to `/foreman/orders`.
-- _Phase 3 —_ (not started)
+- _Phase 3 —_ **done** (Slice A). `app/foreman/orders/page.tsx` renders a
+  5-segment status pill per order (Draft · Pending · Approved · Ordered ·
+  Delivered) and subscribes to Supabase Realtime on `orders` filtered to the
+  caller's profile, with a 5 s `/api/orders/list` polling fallback merged
+  client-side. Pending rows show the "Warte auf Einkauf" subtitle.
 - _Phase 4 —_ (not started)
 - _Phase 5 —_ (not started)
 - _Phase 6 —_ (not started)
