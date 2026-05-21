@@ -174,6 +174,18 @@ export function ForemanHomeClient({
     persistCart(cart);
   }, [cart]);
 
+  // Reactively prune cart lines that fall out of the catalog when it changes
+  // under us — e.g. the RefreshPoller picks up a live DB re-seed in an
+  // already-open tab. Only ever removes now-invalid lines (returns the same
+  // array when nothing changed), so it can't clobber valid edits.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCart((prev) => {
+      const pruned = prev.filter((l) => productById.has(l.product_id));
+      return pruned.length === prev.length ? prev : pruned;
+    });
+  }, [productById]);
+
   const online = browserOnline && !forcedOffline;
 
   // Flush the offline queue whenever we come back online.
