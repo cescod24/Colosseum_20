@@ -13,7 +13,15 @@
 export type ChipPreset = readonly number[];
 
 export const chipsByUnit: Record<string, ChipPreset> = {
-  // TODO(phase-2): populate per the comment above.
+  Stk: [10, 25, 50, 100],
+  Rolle: [1, 2, 5, 10],
+  Liter: [1, 2, 5, 10],
+  Dose: [1, 2, 5, 10],
+  Eimer: [1, 2, 5, 10],
+  Paar: [1, 2, 5, 10],
+  m: [10, 25, 50, 100],
+  Flasche: [1, 2, 5, 10],
+  Tub: [1, 2, 5, 10],
 };
 
 export const defaultChips: ChipPreset = [1, 2, 5, 10];

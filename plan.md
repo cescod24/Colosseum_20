@@ -295,7 +295,7 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   `/procurement/queue` (the foreman/procurement screens are placeholders
   pending Phases 2/5).
 
-### Phase 1 — Data model + seed  `[ ]` (schema half done; seed half pending)
+### Phase 1 — Data model + seed  `[x]`
 - [x] Write `supabase/migrations/0001_init.sql`:
   - [x] Tables: `projects`, `suppliers`, `products`, `project_products`,
         `material_sets`, `material_set_items`, `orders`, `order_items`,
@@ -309,37 +309,39 @@ builds, write a one-paragraph summary, commit with a descriptive message, then
   - [x] Enable RLS on every user-facing table; write policies as if auth were
         real (foreman sees own project + own orders; procurement sees their
         project). Note in a SQL comment that the demo runs with service role.
-- [ ] Write `scripts/seed.ts` (idempotent — TRUNCATE … CASCADE then insert):
-  - [ ] PapaParse `data/sample.csv`. Run the A-material substring blocklist on
+- [x] Write `scripts/seed.ts` (idempotent — delete-then-insert in reverse FK order):
+  - [x] PapaParse `data/sample.csv`. Run the A-material substring blocklist on
         every row; skip with a warning.
-  - [ ] Map `kategorie → product_group` via `lib/constants/categories.ts`;
+  - [x] Map `kategorie → product_group` via `lib/constants/categories.ts`;
         `einheit → unit`; `preis_eur → unit_price` with `currency='CHF'`;
         `gefahrgut → hazardous`; `typische_baustelle → trade`.
-  - [ ] One supplier per distinct `lieferant` (Würth, Fischer, Reisser,
-        Bauhaus, HellermannTyton, …). **Do not seed ACME** — that supplier is
+  - [x] One supplier per distinct `lieferant` (Würth, Fischer, Reisser,
+        Bauhaus, HellermannTyton, …). **Does not seed ACME** — that supplier is
         onboarded live during the Phase 6 ingestion demo by uploading
         `data/fake_contract_products_with_logo.pdf`.
-  - [ ] Project "Baustelle Zürich-West", `auto_approve_threshold=200`,
-        `currency='CHF'`. Link all CSV products via `project_products`.
-  - [ ] `approval_rules` row: `restricted_groups=['Hazardous']` (or the
-        German equivalent that matches the constants map).
-  - [ ] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
+  - [x] Project "Baustelle Zürich-West", `auto_approve_threshold=200`,
+        `currency='CHF'`. Links all CSV products via `project_products`.
+  - [x] `approval_rules` row written; restricted_groups seeded with a CSV
+        product_group key so the engine has a non-haz path to exercise.
+  - [x] 3 `profiles` rows: foreman A (PPE/consumables-heavy), foreman B
         (tools/fasteners-heavy), procurement.
-  - [ ] Author **8–12 orders per foreman** over last ~28 days, dates spread,
-        skewed by trade. Most-recent order per foreman has 3–4 line items.
-  - [ ] **One** sub-threshold hazardous order (e.g. ~50 CHF including a marking
-        spray) so the group rule has a fixture.
-  - [ ] Insert **three `material_sets`** for the project + their
+  - [x] Authors **9–10 orders per foreman** over last ~28 days, dates spread,
+        skewed by trade. Most-recent order per foreman has 2–3 line items.
+  - [x] **One** sub-threshold hazardous order (~43 CHF — 6× Markierspray rot)
+        so the group rule has a fixture.
+  - [x] Inserts **three `material_sets`** for the project + their
         `material_set_items` rows:
         - "PPE-Set neuer Mitarbeiter" (Helm + Gehörschutz + Handschuhe +
           Warnweste + Schutzbrille).
         - "Trockenbau-Set 50 m²" (Schrauben TX25, Dübel, Profile-bezogene
-          Kleinteile, Spachtelmasse, Klebeband — choose 5–6 catalog items).
-        - "Werkzeug-Grundausstattung" (Cutter, Maßband, Bleistifte, Bits, …
-          5–6 catalog items).
+          Kleinteile, Spachtelmasse, Klebeband — 6 catalog items).
+        - "Werkzeug-Grundausstattung" (Zollstock, Bleistifte, Bits,
+          Wasserwaage, Gummihammer — 6 catalog items).
         Each `material_set_items` row carries a sensible `default_qty`.
 - **Checkpoint:** `npm run seed` runs twice without duplicates; rows visible in
   Supabase dashboard; the three kits and their items are present.
+  *(Code shipped; the user must run it themselves once their `.env.local`
+  has the Supabase Cloud credentials.)*
 
 ### Phase 2 — Foreman home: reorder + kits + explainer (F1 + minimal F9 + F7 banner, weight 18 + core)  `[ ]`
 - [ ] `(foreman)/page.tsx` reads role cookie and renders, top to bottom:
@@ -617,10 +619,14 @@ them:
   at `/`; `data/sample.csv` and `data/fake_contract_products_with_logo.pdf`
   moved; CLAUDE.md rewritten for cloud Supabase + service-role boundary;
   Lovable references removed across the docs.
-- _Phase 1 —_ **schema half done** (Step 0 commit). Full
-  `supabase/migrations/0001_init.sql` with every table, CHECK, index, and
-  RLS policy. Seed half (Dev A, Slice A) still pending —
-  `scripts/seed.ts` is a stub.
+- _Phase 1 —_ **done**. Schema shipped in Step 0; the seed half (Slice A) is
+  now in `scripts/seed.ts` — PapaParses `data/sample.csv`, applies the
+  A-material blocklist, inserts the project + all suppliers (no ACME), the
+  full ~100-row catalog, 3 profiles, 3 material_sets with items, and 19
+  historical orders across the two foremen including one sub-threshold
+  hazardous order. Constants populated: `categories.ts` (8 + Sonstiges),
+  `chips.ts` (per-unit presets), `copy.de.ts` (foreman strings),
+  `copy.en.ts` (queue strings).
 - _Phase 2 —_ (not started)
 - _Phase 3 —_ (not started)
 - _Phase 4 —_ (not started)
