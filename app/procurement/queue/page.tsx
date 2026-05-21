@@ -83,7 +83,7 @@ export default async function QueuePage() {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, total, currency, created_at, profiles!orders_created_by_fkey (display_name), order_items (id, qty, unit_price, products (name, unit, hazardous, suppliers (name)))",
+      "id, total, currency, created_at, profiles!orders_created_by_fkey (display_name), order_items (id, qty, unit_price, products!order_items_product_id_fkey (name, unit, hazardous, suppliers (name)))",
     )
     .eq("status", "pending")
     .is("decided_at", null)

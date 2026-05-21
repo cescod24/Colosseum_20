@@ -102,7 +102,7 @@ export default async function DashboardPage() {
   const { data: rowsRaw, error } = await supabase
     .from("order_items")
     .select(
-      "qty, unit_price, orders!inner (created_by, project_id, status, profiles!orders_created_by_fkey (display_name)), products (product_group, suppliers (name))",
+      "qty, unit_price, orders!inner (created_by, project_id, status, profiles!orders_created_by_fkey (display_name)), products!order_items_product_id_fkey (product_group, suppliers (name))",
     )
     .eq("orders.project_id", profile.project_id)
     .in("orders.status", COUNTED_STATUSES);

@@ -75,7 +75,7 @@ export async function approveOrder(
   const { data: itemsRaw, error: itemsError } = await supabase
     .from("order_items")
     .select(
-      "qty, unit_price, products (supplier_sku, name, unit, hazardous, suppliers (id, name))",
+      "qty, unit_price, products!order_items_product_id_fkey (supplier_sku, name, unit, hazardous, suppliers (id, name))",
     )
     .eq("order_id", orderId);
 
@@ -211,7 +211,7 @@ export async function decideOrderLines(
   const { data: itemsRaw, error: itemsError } = await supabase
     .from("order_items")
     .select(
-      "id, qty, unit_price, products (supplier_sku, name, unit, hazardous, suppliers (id, name))",
+      "id, qty, unit_price, products!order_items_product_id_fkey (supplier_sku, name, unit, hazardous, suppliers (id, name))",
     )
     .eq("order_id", orderId);
 

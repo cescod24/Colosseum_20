@@ -60,7 +60,7 @@ export default async function ForemanOrderDetail({
 
   const select = linesEnabled
     ? "id, status, total, currency, created_at, created_by, order_items (id, qty, line_status, decline_reason, suggested_qty, products!order_items_product_id_fkey (name, unit), suggested_product:products!order_items_suggested_product_id_fkey (name, unit))"
-    : "id, status, total, currency, created_at, created_by, order_items (id, qty, products (name, unit))";
+    : "id, status, total, currency, created_at, created_by, order_items (id, qty, products!order_items_product_id_fkey (name, unit))";
 
   const { data, error } = await supabase
     .from("orders")
