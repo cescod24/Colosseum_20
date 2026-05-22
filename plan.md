@@ -2188,6 +2188,14 @@ For a fresh chat continuing §17:
       "Decision recap" tables scroll horizontally inside their card. Ingest
       rows no longer show a `hazardous` badge (data still carries it; the
       people handling the goods know).
+- [x] Catalog scales to ~50 k products: server-side `?q=` ILIKE search
+      (project_products inner-join + exact count) returns at most 100 rows
+      per request; the `CatalogTable` debounces the URL update so typing
+      feels instant. `scripts/seed-bulk.ts` + `npm run seed:bulk [N]`
+      generates synthetic C-material SKUs (default 50 000) across the 9
+      categories with a `BULK-` prefix, idempotent on that slice. The
+      discover + voice catalog loaders now `.order("created_at")` so the
+      original anchor SKUs sit inside their 500-row cap even under 50 k.
 
 ### 18.2 What changed (file refs)
 

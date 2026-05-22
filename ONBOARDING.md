@@ -60,12 +60,18 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
   Don't re-apply. 0004 added per-line decision fields to `order_items`
   (`line_status`, `decline_reason`, `suggested_product_id`,
   `suggested_qty`) — see plan.md §14 for the feature it unlocked.
-- **Seed has two modes** (both wipe & reseed the *shared* DB — coordinate in
-  team chat first):
+- **Seed has three modes** (the first two wipe & reseed the *shared* DB —
+  coordinate in team chat first; the third only touches its own slice):
   - `npm run seed` — full demo dataset (catalog + ~20 historical orders).
   - `npm run seed:clean` — catalog + kits, **zero orders** (empty slate).
-  - The DB was last left **clean-seeded** (0 orders). Run `npm run seed` if
-    you want the lived-in demo history back.
+  - `npm run seed:bulk [N]` — add N (default 50 000) synthetic C-material
+    SKUs on top, all with a `BULK-` prefix. Idempotent on that slice (re-
+    running wipes prior `BULK-%` rows, never touches the real seed). Used
+    to demo the catalog at real supplier scale (~50 k products). The
+    procurement catalog search is server-side, so it stays fast.
+  - The DB currently holds the full real seed **+ 50 000 BULK products**
+    (catalog total ≈ 50 109). Run `npm run seed` to wipe everything and
+    start over; the bulk slice doesn't survive a normal reseed.
 - The 5 env values are **shared in the team chat** (never committed).
   `cp .env.example .env.local` and paste them.
 - **Ingest fixtures in `data/`:** the clean + messy ACME PDFs, plus three
