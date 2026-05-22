@@ -137,18 +137,121 @@ function fallbackCatalog(): CatalogRow[] {
   return skus.map((s) => ({ ...s, product_id: uuidFor(s.supplier_sku) }));
 }
 
+// Multilingual keyword expansion. Maps user-spoken terms (DE/IT/EN) to
+// substrings that appear in our German product names / groups, so the
+// scorer below boosts relevant SKUs even when the foreman doesn't use the
+// catalog's exact wording.
+const SYNONYMS: Record<string, string[]> = {
+  // PPE
+  glove: ["handschuh"], gloves: ["handschuh"],
+  guanti: ["handschuh"], guanto: ["handschuh"],
+  handschuh: ["handschuh"], handschuhe: ["handschuh"],
+  helmet: ["helm"], casco: ["helm"], helm: ["helm"], helme: ["helm"],
+  goggle: ["schutzbrille"], goggles: ["schutzbrille"],
+  schutzbrille: ["schutzbrille"], occhiali: ["schutzbrille"],
+  vest: ["warnweste"], warnweste: ["warnweste"], gilet: ["warnweste"],
+  ear: ["gehörschutz", "gehörschutzstöpsel"],
+  gehörschutz: ["gehörschutz", "gehörschutzstöpsel"],
+  ppe: ["handschuh", "helm", "schutzbrille", "warnweste", "gehörschutz"],
+  psa: ["handschuh", "helm", "schutzbrille", "warnweste", "gehörschutz"],
+  // Fasteners
+  screw: ["schraube"], screws: ["schraube"],
+  vite: ["schraube"], viti: ["schraube"],
+  schraube: ["schraube"], schrauben: ["schraube"],
+  dübel: ["dübel"], duebel: ["dübel"], anchor: ["dübel"],
+  // Tools
+  drill: ["bohrer", "bohrmaschine"], trapano: ["bohrer"], bohrer: ["bohrer"],
+  bit: ["bit"], bits: ["bit"], punte: ["bit"],
+  cutter: ["cutter", "schneidemesser"], messer: ["cutter", "schneidemesser"],
+  level: ["wasserwaage"], wasserwaage: ["wasserwaage"], livella: ["wasserwaage"],
+  zollstock: ["zollstock"], metro: ["zollstock", "maßband"],
+  bleistift: ["bleistift"], pencil: ["bleistift"], matita: ["bleistift"],
+  // Tape / covers
+  tape: ["tape", "klebeband", "panzertape"],
+  nastro: ["tape", "klebeband", "panzertape"],
+  klebeband: ["klebeband"], panzertape: ["panzertape"],
+  abdeckung: ["abdeck"], folie: ["folie"], plane: ["plane", "abdeckplane"],
+  // Sealants
+  silikon: ["silikon"], silicone: ["silikon"], seal: ["silikon", "abdicht"],
+  abdichten: ["silikon", "abdicht"], window: ["fenster"], fenster: ["fenster"],
+  finestra: ["fenster"], door: ["tür", "tuer"], tuer: ["tür"], tür: ["tür"],
+  porta: ["tür"],
+  // Drywall
+  drywall: ["gipskarton", "trockenbau"],
+  gipskarton: ["gipskarton", "trockenbau"],
+  cartongesso: ["gipskarton", "trockenbau"],
+  trockenbau: ["gipskarton", "trockenbau"],
+  spachtel: ["spachtel"],
+  // Cable / electrical
+  cable: ["kabel"], cavo: ["kabel"], cavi: ["kabel"], kabel: ["kabel"],
+  kabelbinder: ["kabelbinder"], zip: ["kabelbinder"],
+  isolierband: ["isolierband"], tape_electric: ["isolierband"],
+  // Cleaning
+  reiniger: ["reinig", "reinigungsalkohol"], cleaner: ["reinig"],
+  alcohol: ["alkohol", "reinigungsalkohol"],
+};
+
+function expandTokens(transcript: string): Set<string> {
+  const raw = transcript
+    .toLowerCase()
+    .split(/[^a-z0-9äöüß]+/u)
+    .filter((t) => t.length >= 3);
+  const set = new Set<string>(raw);
+  for (const t of raw) {
+    for (const syn of SYNONYMS[t] ?? []) set.add(syn);
+  }
+  return set;
+}
+
+function prioritiseCatalog(
+  catalog: CatalogRow[],
+  transcript: string,
+): CatalogRow[] {
+  const tokens = expandTokens(transcript);
+  if (tokens.size === 0) return [...catalog];
+  const scored = catalog.map((row) => {
+    const haystack =
+      `${row.name} ${row.product_group ?? ""} ${row.supplier_sku}`.toLowerCase();
+    let score = 0;
+    for (const t of tokens) {
+      if (haystack.includes(t)) score += 2;
+    }
+    return { row, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.row);
+}
+
 function buildSystemPrompt(opts: {
   catalog: CatalogRow[];
   cartLines: Array<{ supplier_sku: string; name: string; qty: number }>;
   threshold: number;
+  transcript: string;
 }): string {
-  const catalogShortlist = opts.catalog.slice(0, CATALOG_LIMIT_FOR_PROMPT);
-  const promptCatalog = catalogShortlist
-    .map(
-      (c) =>
-        `- ${c.supplier_sku}\t${c.name} (${c.unit}, ${c.product_group ?? "misc"}${c.unit_price != null ? `, ${c.unit_price.toFixed(2)} CHF` : ""}${c.hazardous ? ", GEFAHRGUT" : ""})`,
-    )
-    .join("\n");
+  // Prioritise relevant rows first so they land within the prompt budget,
+  // then group by product_group so the model sees related items together.
+  const ranked = prioritiseCatalog(opts.catalog, opts.transcript).slice(
+    0,
+    CATALOG_LIMIT_FOR_PROMPT,
+  );
+  const grouped = new Map<string, CatalogRow[]>();
+  for (const row of ranked) {
+    const key = row.product_group ?? "misc";
+    const list = grouped.get(key);
+    if (list) list.push(row);
+    else grouped.set(key, [row]);
+  }
+  const promptCatalog = Array.from(grouped.entries())
+    .map(([group, rows]) => {
+      const lines = rows
+        .map(
+          (c) =>
+            `  - ${c.supplier_sku}\t${c.name} (${c.unit}${c.unit_price != null ? `, ${c.unit_price.toFixed(2)} CHF` : ""}${c.hazardous ? ", GEFAHRGUT" : ""})`,
+        )
+        .join("\n");
+      return `### ${group}\n${lines}`;
+    })
+    .join("\n\n");
   const cart =
     opts.cartLines.length === 0
       ? "(leer)"
@@ -368,6 +471,7 @@ export async function POST(req: Request) {
     catalog,
     cartLines: cartSummary,
     threshold: 200,
+    transcript,
   });
   const userText = `Polier sagt: "${transcript}"\n\nReturn JSON only.`;
 

@@ -13,9 +13,16 @@ import { copyDe } from "@/lib/constants/copy.de";
 //
 // `currentPath` is used purely to style the active item; pass the page's own
 // path (e.g. "/foreman", "/foreman/orders", "/foreman/discover").
+//
+// Mobile safe-area: padding-bottom honours `env(safe-area-inset-bottom)` so
+// the bar clears the iOS home indicator on notched devices.
 
 type Props = {
-  currentPath: "/foreman" | "/foreman/orders" | "/foreman/discover";
+  currentPath:
+    | "/foreman"
+    | "/foreman/orders"
+    | "/foreman/discover"
+    | "/foreman/info";
   cartCount: number;
   onCartTap: () => void;
   onAssistantTap: () => void;
@@ -30,9 +37,10 @@ export function BottomNavBar({
   return (
     <nav
       aria-label="Hauptnavigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="mx-auto flex h-16 max-w-md items-center justify-around px-2">
+      <div className="relative mx-auto flex h-16 w-full max-w-md items-stretch justify-between px-1 sm:px-2">
         <NavLink
           href="/foreman"
           icon={<Home className="h-5 w-5" />}
@@ -46,15 +54,9 @@ export function BottomNavBar({
           badge={cartCount}
         />
 
-        {/* Center AI button — taller, gradient, takes the focus */}
-        <button
-          type="button"
-          onClick={onAssistantTap}
-          aria-label={copyDe["nav.ai"]}
-          className="relative -top-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-700 text-white shadow-lg ring-4 ring-white transition-transform hover:scale-105 active:scale-95"
-        >
-          <Sparkles className="h-6 w-6" />
-        </button>
+        {/* Spacer that reserves room for the floating center FAB so the four
+            side items don't bunch behind it on narrow phones. */}
+        <div aria-hidden className="w-16 shrink-0" />
 
         <NavLink
           href="/foreman/orders"
@@ -68,6 +70,19 @@ export function BottomNavBar({
           label={copyDe["nav.discover"]}
           active={currentPath === "/foreman/discover"}
         />
+
+        {/* Center AI FAB — absolutely positioned so it doesn't deform the
+            flex layout, and shifted half its height above the nav baseline.
+            Sits above its own dedicated spacer (above), so the layout never
+            collapses on tiny screens. */}
+        <button
+          type="button"
+          onClick={onAssistantTap}
+          aria-label={copyDe["nav.ai"]}
+          className="absolute left-1/2 top-0 inline-flex h-14 w-14 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 text-white shadow-lg ring-4 ring-white transition-transform hover:scale-105 active:scale-95"
+        >
+          <Sparkles className="h-6 w-6" />
+        </button>
       </div>
     </nav>
   );
@@ -88,13 +103,13 @@ function NavLink({
     <Link
       href={href}
       className={
-        "flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium transition-colors " +
+        "flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium leading-none transition-colors " +
         (active ? "text-zinc-900" : "text-zinc-500 hover:text-zinc-900")
       }
       aria-current={active ? "page" : undefined}
     >
       <span className={active ? "" : "opacity-80"}>{icon}</span>
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
     </Link>
   );
 }
@@ -114,7 +129,7 @@ function NavButton({
     <button
       type="button"
       onClick={onTap}
-      className="relative flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium text-zinc-500 transition-colors hover:text-zinc-900"
+      className="relative flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium leading-none text-zinc-500 transition-colors hover:text-zinc-900"
     >
       <span className="relative opacity-80">
         {icon}
@@ -125,7 +140,7 @@ function NavButton({
           />
         )}
       </span>
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
