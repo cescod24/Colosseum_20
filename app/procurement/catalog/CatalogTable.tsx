@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { copyEn } from "@/lib/constants/copy.en";
+import { categories, type CategoryKey } from "@/lib/constants/categories";
 
 export type CatalogRow = {
   id: string;
@@ -23,6 +24,30 @@ type Props = {
   // Server action passed down from the page (allowed in Next.js).
   updateProduct: (formData: FormData) => void | Promise<void>;
 };
+
+// A coloured dot per category — a small, decorative cue that never clashes
+// with the status colours (those are larger pills). Falls back to neutral.
+const GROUP_DOT: Record<string, string> = {
+  fasteners: "bg-blue-500",
+  electrical: "bg-violet-500",
+  ppe: "bg-teal-500",
+  tools: "bg-slate-500",
+  covers_tape: "bg-amber-500",
+  sealants: "bg-cyan-500",
+  paint: "bg-pink-500",
+  cleaning_chemicals: "bg-emerald-500",
+  misc: "bg-stone-400",
+};
+
+const groupLabel = (g: string | null): string =>
+  g && g in categories ? categories[g as CategoryKey].label_en : (g ?? "—");
+const groupDot = (g: string | null): string =>
+  (g && GROUP_DOT[g]) || "bg-zinc-300";
+
+// Ghost field: reads as plain text in the card, reveals a border + ring on
+// hover/focus so the whole row stays calm until you actually edit.
+const GHOST =
+  "rounded-md border border-transparent bg-transparent px-1.5 py-1 transition-colors hover:border-zinc-200 hover:bg-zinc-50 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
 
 export function CatalogTable({ products, limit, updateProduct }: Props) {
   const [query, setQuery] = useState("");
@@ -69,35 +94,43 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
       </div>
 
       {/* Desktop column header — hidden on mobile, where each row is a card. */}
-      <div className="hidden grid-cols-12 gap-2 rounded-t-2xl border border-b-0 border-zinc-200 bg-zinc-50 px-4 py-2 text-xs uppercase tracking-wide text-zinc-500 sm:grid">
+      <div className="hidden grid-cols-12 gap-2 px-4 pb-1 text-[11px] font-medium uppercase tracking-wide text-zinc-400 sm:grid">
         <span className="col-span-3">{copyEn["catalog.col_name"]}</span>
         <span className="col-span-2">{copyEn["catalog.col_supplier"]}</span>
         <span className="col-span-1">{copyEn["catalog.col_sku"]}</span>
-        <span className="col-span-2">{copyEn["catalog.col_group"]}</span>
         <span className="col-span-1">{copyEn["catalog.col_unit"]}</span>
+        <span className="col-span-2">{copyEn["catalog.col_group"]}</span>
         <span className="col-span-2 text-right">{copyEn["catalog.col_price"]}</span>
         <span className="col-span-1" />
       </div>
 
-      <div className="space-y-3 sm:space-y-0 sm:divide-y sm:divide-zinc-100 sm:rounded-b-2xl sm:border sm:border-zinc-200 sm:bg-white sm:shadow-sm">
+      <div className="space-y-3 sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white sm:shadow-sm">
         {filtered.map((p) => (
           <form
             key={p.id}
             action={updateProduct}
-            className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:grid sm:grid-cols-12 sm:items-center sm:gap-2 sm:space-y-0 sm:rounded-none sm:border-0 sm:p-2 sm:px-4 sm:shadow-none"
+            className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm transition hover:shadow-md sm:grid sm:grid-cols-12 sm:items-center sm:gap-2 sm:rounded-none sm:border-0 sm:border-t sm:border-zinc-100 sm:p-2 sm:px-4 sm:shadow-none sm:transition-colors sm:hover:bg-zinc-50/70 sm:hover:shadow-none"
           >
             <input type="hidden" name="id" value={p.id} />
-            <input
-              type="text"
-              name="name"
-              defaultValue={p.name}
-              aria-label={copyEn["catalog.col_name"]}
-              className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm font-medium sm:col-span-3 sm:py-1 sm:font-normal"
-            />
-            {/* Meta: a wrapped line on mobile; on sm+ `contents` lets the three
-                spans drop into the parent grid as their own cells. */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 sm:contents">
-              <span className="sm:col-span-2 sm:text-sm sm:text-zinc-600">
+
+            {/* Name + category dot */}
+            <div className="flex items-center gap-2 sm:col-span-3">
+              <span
+                title={groupLabel(p.product_group)}
+                className={`h-2.5 w-2.5 flex-none rounded-full ${groupDot(p.product_group)}`}
+              />
+              <input
+                type="text"
+                name="name"
+                defaultValue={p.name}
+                aria-label={copyEn["catalog.col_name"]}
+                className={`min-w-0 flex-1 text-sm font-semibold text-zinc-900 sm:font-medium ${GHOST}`}
+              />
+            </div>
+
+            {/* Meta line on mobile → three aligned cells on desktop via `contents`. */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[1.125rem] text-xs text-zinc-500 sm:contents sm:mt-0 sm:pl-0">
+              <span className="sm:col-span-2 sm:truncate sm:text-sm sm:text-zinc-600">
                 {p.suppliers.name}
               </span>
               <span className="font-mono sm:col-span-1 sm:text-xs sm:text-zinc-500">
@@ -107,15 +140,27 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
                 {p.unit}
               </span>
             </div>
-            <input
-              type="text"
-              name="product_group"
-              defaultValue={p.product_group ?? ""}
-              aria-label={copyEn["catalog.col_group"]}
-              placeholder={copyEn["catalog.col_group"]}
-              className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm sm:col-span-2 sm:py-1"
-            />
-            <div className="flex items-center gap-1 sm:col-span-2 sm:justify-end">
+
+            {/* Group (editable) */}
+            <label className="mt-2 flex items-center gap-2 sm:col-span-2 sm:mt-0">
+              <span className="w-12 shrink-0 text-[11px] font-medium uppercase tracking-wide text-zinc-400 sm:hidden">
+                {copyEn["catalog.col_group"]}
+              </span>
+              <input
+                type="text"
+                name="product_group"
+                defaultValue={p.product_group ?? ""}
+                placeholder="—"
+                aria-label={copyEn["catalog.col_group"]}
+                className={`min-w-0 flex-1 text-sm text-zinc-700 sm:w-full ${GHOST}`}
+              />
+            </label>
+
+            {/* Price (editable) */}
+            <label className="mt-2 flex items-center gap-2 sm:col-span-2 sm:mt-0 sm:justify-end">
+              <span className="w-12 shrink-0 text-[11px] font-medium uppercase tracking-wide text-zinc-400 sm:hidden">
+                {copyEn["catalog.col_price"]}
+              </span>
               <input
                 type="number"
                 name="unit_price"
@@ -123,30 +168,36 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
                 step="0.01"
                 min="0"
                 aria-label={copyEn["catalog.col_price"]}
-                className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-right text-sm sm:w-24 sm:py-1"
+                className={`min-w-0 flex-1 text-right text-sm tabular-nums text-zinc-900 sm:w-20 sm:flex-none ${GHOST}`}
               />
-              <span className="text-xs text-zinc-500">{p.currency}</span>
+              <span className="text-xs text-zinc-400">{p.currency}</span>
+            </label>
+
+            {/* Save */}
+            <div className="mt-3 sm:col-span-1 sm:mt-0 sm:justify-self-end">
+              <button
+                type="submit"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-hover sm:w-auto sm:px-2.5 sm:py-1.5"
+              >
+                <Check className="h-3.5 w-3.5" />
+                <span className="sm:hidden">{copyEn["catalog.col_save"]}</span>
+              </button>
             </div>
-            <button
-              type="submit"
-              className="w-full rounded-md bg-brand px-3 py-2 text-xs font-medium text-white hover:bg-brand-hover sm:col-span-1 sm:w-auto sm:justify-self-end sm:py-1"
-            >
-              {copyEn["catalog.col_save"]}
-            </button>
           </form>
         ))}
 
         {filtered.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-8 text-center text-sm text-zinc-500 sm:rounded-none sm:border-0 sm:border-t sm:border-solid sm:border-zinc-100">
+          <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500 sm:rounded-none sm:border-0 sm:border-t sm:border-zinc-100">
             {copyEn["catalog.search_empty"]} “{query}”.
           </p>
         )}
-        {!query && products.length === limit && (
-          <p className="px-4 py-2 text-xs text-zinc-500">
-            Showing first {limit} active products on this project.
-          </p>
-        )}
       </div>
+
+      {!query && products.length === limit && (
+        <p className="px-1 text-xs text-zinc-400">
+          Showing first {limit} active products on this project.
+        </p>
+      )}
     </div>
   );
 }
