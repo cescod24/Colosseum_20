@@ -2,7 +2,8 @@
 //
 // Foremen don't chat. One utterance in → one decisive recommendation out.
 // No history, no follow-up questions, no alternatives. The client renders
-// the items + total + a single "Bestellung senden · X CHF" button.
+// the items only and drops them into the cart — the foreman never sees a
+// price (per CLAUDE.md), so there is no total and no "· X CHF" on the button.
 //
 // Accepts EITHER:
 //   - multipart/form-data with `audio` (audio/webm preferred), and optional
@@ -17,8 +18,8 @@
 //   4. Load project catalog (real DB or fallbackCatalog).
 //   5. callAI() with a decisive German prompt → AiAssistantReply = { reply, items }.
 //   6. Resolve SKUs from catalog; orphans go into `unmatched`. Server attaches
-//      unit_price (server-authoritative) so the client can compute the total
-//      without ever displaying per-line prices.
+//      unit_price (server-authoritative) for completeness, but the foreman
+//      client never displays any price — not per-line, not a total.
 //   7. Return AssistantResponse.
 
 import { NextResponse } from "next/server";
