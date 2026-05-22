@@ -271,10 +271,14 @@ function buildSystemPrompt(opts: {
     "Empfehlung aus dem Katalog. Niemals eine leere items-Liste.",
     "",
     "AUSGABE-FORMAT (immer reines JSON, nichts anderes):",
-    '{ "reply": <ein kurzer deutscher Satz>, "items": [{"supplier_sku", "qty"}] }',
+    '{ "reply": <satz>, "items": [{"supplier_sku","qty"}], "cart_removals": [<sku>...] }',
     "- reply: max 12 Wörter, kein Fragezeichen, KEINE Floskeln.",
     '  Beispiel: "10× Schraube TX25 6×80, 2× Panzertape, 1× Bohrer 8 mm."',
-    "- items: 1–16 Einträge. Jedes supplier_sku MUSS exakt im Katalog stehen.",
+    "- items: 1–16 Einträge mit NEUEN Artikeln (zum Hinzufügen).",
+    "  Jedes supplier_sku MUSS exakt im Katalog stehen.",
+    "- cart_removals: Liste von supplier_sku, die SCHON IM WARENKORB sind",
+    "  und die der Polier explizit entfernen möchte. Leer wenn er nichts",
+    "  vom Warenkorb wegnehmen will. Siehe WARENKORB-AKTIONEN unten.",
     "",
     "ANZAHL-REGEL (sehr wichtig — knausere nicht):",
     "- Empfehle KEINE feste Anzahl von 3 Items als Standard.",
@@ -340,6 +344,41 @@ function buildSystemPrompt(opts: {
     "",
     "SPRACHE: Der Polier kann auf Deutsch, Italienisch oder Englisch sprechen.",
     "Verstehe alle drei und antworte immer auf Deutsch.",
+    "",
+    "═══════════════════════════════════════════════════════════════",
+    "WARENKORB-AKTIONEN — sehr wichtig, NICHT vermischen:",
+    "═══════════════════════════════════════════════════════════════",
+    "Der Polier hat einen WARENKORB (siehe unten 'Aktueller Warenkorb').",
+    "Das ist eine andere Liste als dein aktueller Vorschlag (items).",
+    "",
+    "→ Wenn der Polier sagt 'entferne / togli / remove / wegnehmen / lösche'",
+    "  und der gemeinte Artikel IM WARENKORB ist (nicht im Vorschlag),",
+    "  setze seinen supplier_sku in 'cart_removals'. items bleibt unverändert.",
+    "",
+    "→ Wenn der Polier sagt 'rimuovi quello che hai aggiunto al carrello' /",
+    "  'togli quello che ho appena aggiunto' / 'undo' / 'lösche alles aus",
+    "  dem Warenkorb': setze ALLE supplier_sku des Warenkorbs in",
+    "  cart_removals. Das macht den Warenkorb leer.",
+    "",
+    "→ Wenn der Polier sagt 'togli le viti dal carrello' und der Warenkorb",
+    "  enthält 50× C003 Schraube TX25 + 2× C019 Handschuhe:",
+    "    cart_removals: [\"C003\"]",
+    "    items: [] (keine neuen Artikel)",
+    "",
+    "→ Wenn der Polier sagt 'togli le viti dal carrello e aggiungi del",
+    "  silikon': aus dem Warenkorb entfernen + ein neues item vorschlagen:",
+    "    cart_removals: [\"C003\"]",
+    "    items: [{\"supplier_sku\": \"C039\", \"qty\": 2}]",
+    "",
+    "→ Wenn der Polier sagt 'aggiungi un'altra vite' und im Warenkorb sind",
+    "  schon 50× C003: das ist KEIN cart_removal — neue Empfehlung in items.",
+    "",
+    "→ Wenn der Polier eine ITEM-ZAHL im Warenkorb ändern will ('mach 20",
+    "  statt 50 Schrauben im Warenkorb'): Lege den NEUEN sku in items (+",
+    "  qty) und den ALTEN sku in cart_removals. Der Client ersetzt dann.",
+    "",
+    "Wenn der Polier nichts vom Warenkorb wegnehmen will, lass cart_removals",
+    "einfach leer. Default: leer.",
     "",
   ];
 
@@ -591,6 +630,7 @@ export async function POST(req: Request) {
       transcript: "",
       reply: "Halt das Mikrofon etwas länger gedrückt — ich hab nichts gehört.",
       items: [],
+      cart_removals: [],
       unmatched: [],
       canned: true,
       message: "too_short",
@@ -605,6 +645,7 @@ export async function POST(req: Request) {
       reply:
         "Beton, Stahl & Bewehrung gehen über deinen Bauleiter. Hier nicht bestellbar.",
       items: [],
+      cart_removals: [],
       unmatched: [],
       redirect: true,
       message: "blocked",
@@ -735,12 +776,44 @@ export async function POST(req: Request) {
     }
   }
 
+  // Resolve cart_removals: AI returns supplier_skus, client needs product_id.
+  // Only resolve against the catalog (so unknown SKUs are silently dropped).
+  // We also intersect with the actual cart so we never tell the client to
+  // remove something that isn't even there.
+  const cartSkuSet = new Set<string>();
+  for (const line of cartLines) {
+    if (line.supplier_sku) cartSkuSet.add(line.supplier_sku);
+    // If client only sent product_ids, resolve via catalog
+    else if (line.product_id) {
+      const hit = catalog.find((c) => c.product_id === line.product_id);
+      if (hit) cartSkuSet.add(hit.supplier_sku);
+    }
+  }
+  const bySkuFinal = new Map(catalog.map((c) => [c.supplier_sku, c]));
+  const cartRemovals: { product_id: string; supplier_sku: string; name: string }[] = [];
+  for (const sku of ai.cart_removals ?? []) {
+    if (!cartSkuSet.has(sku)) continue; // not in cart → ignore
+    const hit = bySkuFinal.get(sku);
+    if (!hit) continue;
+    cartRemovals.push({
+      product_id: hit.product_id,
+      supplier_sku: hit.supplier_sku,
+      name: hit.name,
+    });
+  }
+  if (cartRemovals.length > 0) {
+    console.log(
+      `[voice] cart_removals: ${cartRemovals.map((r) => r.supplier_sku).join(", ")}`,
+    );
+  }
+
   const canned = !process.env.OPENAI_API_KEY || ai === fallback;
 
   const body: AssistantResponse = {
     transcript,
     reply: ai.reply,
     items,
+    cart_removals: cartRemovals,
     unmatched,
     canned,
   };
@@ -753,6 +826,7 @@ export async function POST(req: Request) {
         transcript,
         reply: "Hab gerade was nicht verstanden. Versuch's nochmal.",
         items: [],
+        cart_removals: [],
         unmatched: [],
         canned: true,
       },

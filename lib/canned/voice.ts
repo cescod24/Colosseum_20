@@ -97,6 +97,7 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
         { supplier_sku: "C027", qty: 2 },
         { supplier_sku: "C034", qty: 1 },
       ],
+      cart_removals: [],
     },
   },
   {
@@ -110,6 +111,7 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
         { supplier_sku: "C021", qty: 2 },
         { supplier_sku: "C024", qty: 2 },
       ],
+      cart_removals: [],
     },
   },
   {
@@ -121,6 +123,7 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
         { supplier_sku: "C043", qty: 1 },
         { supplier_sku: "C027", qty: 1 },
       ],
+      cart_removals: [],
     },
   },
   {
@@ -134,6 +137,7 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
         { supplier_sku: "C033", qty: 4 },
         { supplier_sku: "C046", qty: 1 },
       ],
+      cart_removals: [],
     },
   },
   {
@@ -147,6 +151,7 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
         { supplier_sku: "C027", qty: 2 },
         { supplier_sku: "C047", qty: 1 },
       ],
+      cart_removals: [],
     },
   },
 ];

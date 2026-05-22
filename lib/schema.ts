@@ -282,6 +282,11 @@ export const aiAssistantReplySchema = z.object({
   // legitimately need 6–10 items + a refinement turn where the polier adds
   // more. 8 was forcing the model to drop preserved items during refinement.
   items: z.array(aiAssistantItemSchema).max(16).default([]),
+  /** Supplier SKUs that are currently IN THE CART (not in the proposal)
+   *  that the polier asked to remove. Distinct from refinement removals,
+   *  which work on `items[]`. The server resolves these to product_ids
+   *  and the client calls removeFromCart for each. */
+  cart_removals: z.array(z.string().min(1)).max(8).default([]),
 });
 
 export const assistantItemSchema = z.object({
@@ -297,10 +302,19 @@ export const assistantItemSchema = z.object({
   qty: z.number().int().positive(),
 });
 
+/** Server-resolved cart removal — same shape as items minus the qty. */
+export const cartRemovalSchema = z.object({
+  product_id: z.string().uuid(),
+  supplier_sku: z.string().min(1),
+  name: z.string().min(1),
+});
+
 export const assistantResponseSchema = z.object({
   transcript: z.string(),
   reply: z.string(),
   items: z.array(assistantItemSchema).max(16),
+  /** Items currently in the cart that the polier asked to remove. */
+  cart_removals: z.array(cartRemovalSchema).max(8).default([]),
   unmatched: z.array(voiceUnmatchedSchema).max(8),
   canned: z.boolean().optional(),
   /** A-material guard hit; client renders the Bauleiter redirect, no submit. */
@@ -311,4 +325,5 @@ export const assistantResponseSchema = z.object({
 export type AiAssistantItem = z.infer<typeof aiAssistantItemSchema>;
 export type AiAssistantReply = z.infer<typeof aiAssistantReplySchema>;
 export type AssistantItem = z.infer<typeof assistantItemSchema>;
+export type CartRemoval = z.infer<typeof cartRemovalSchema>;
 export type AssistantResponse = z.infer<typeof assistantResponseSchema>;

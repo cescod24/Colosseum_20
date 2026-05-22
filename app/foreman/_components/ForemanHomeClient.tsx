@@ -265,6 +265,10 @@ export function ForemanHomeClient({
     });
   }
 
+  function removeFromCart(product_id: string) {
+    setCart((prev) => prev.filter((l) => l.product_id !== product_id));
+  }
+
   function loadKit(set: MaterialSet) {
     setCart((prev) => {
       const next = [...prev];
@@ -501,6 +505,7 @@ export function ForemanHomeClient({
         projectId={projectId}
         cart={cart}
         addToCart={addToCart}
+        removeFromCart={removeFromCart}
       />
     </div>
   );

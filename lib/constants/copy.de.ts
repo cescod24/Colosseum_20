@@ -137,6 +137,9 @@ export const copyDe: Copy = {
     "Mikrofon-Zugriff verweigert — in den Browser-Einstellungen erlauben oder einfach tippen.",
   "assistant.refine_hint":
     "Anpassen — sag noch was, ich merke mir den Vorschlag",
+  "assistant.cart_removals_label": "Aus dem Warenkorb entfernen",
+  "assistant.cart_removals_hint":
+    "Wird beim Tippen auf „In den Warenkorb übernehmen\" mit erledigt.",
   "assistant.refine_examples":
     "z.B. „halbiere die Schrauben\", „auch ein Tape\", „ohne Bohrer\", „500 Schrauben\"",
   "assistant.refine_placeholder":

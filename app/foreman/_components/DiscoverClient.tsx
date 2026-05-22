@@ -138,6 +138,10 @@ export function DiscoverClient({ projectId, catalog }: Props) {
     });
   }
 
+  function removeFromCart(product_id: string) {
+    setCart((prev) => prev.filter((l) => l.product_id !== product_id));
+  }
+
   const runSearch = useCallback(
     async (rawTask: string) => {
       const t = rawTask.trim();
@@ -444,6 +448,7 @@ export function DiscoverClient({ projectId, catalog }: Props) {
         projectId={projectId}
         cart={cart}
         addToCart={addToCart}
+        removeFromCart={removeFromCart}
       />
     </div>
   );

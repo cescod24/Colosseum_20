@@ -18,6 +18,7 @@ import {
   assistantResponseSchema,
   type AssistantItem,
   type AssistantResponse,
+  type CartRemoval,
 } from "@/lib/schema";
 
 import { Stepper } from "./Stepper";
@@ -36,13 +37,18 @@ type Props = {
   open: boolean;
   onClose: () => void;
   projectId?: string;
-  /** Foreman's current cart — passed to the AI as context so it doesn't
-   *  re-recommend items already pending. */
+  /** Foreman's current cart — passed to the AI as context. The AI uses it
+   *  both to avoid re-suggesting cart items and to enact removals when the
+   *  polier says "togli quello che hai aggiunto" / "remove the X". */
   cart: CartLineLite[];
   /** Same mutator the rest of the foreman pages use (kit tiles, last order,
    *  most-ordered). The assistant adds its picked items here; submit still
    *  goes through the CartSheet. */
   addToCart: (product_id: string, qty: number) => void;
+  /** Used when the AI returns `cart_removals` — items already in the cart
+   *  that the polier asked to remove. Pages without a real cart (e.g. an
+   *  orders-only screen) can pass a no-op. */
+  removeFromCart?: (product_id: string) => void;
 };
 
 // Step size based on the product's unit. Foremen order screws by tens, tape
@@ -66,6 +72,8 @@ type Status =
       transcript: string;
       reply: string;
       items: AssistantItem[];
+      /** Items already in the cart that the polier asked to remove. */
+      cartRemovals: CartRemoval[];
       unmatched: AssistantResponse["unmatched"];
       canned?: boolean;
     }
@@ -155,6 +163,7 @@ export function AssistantSheet({
   projectId,
   cart,
   addToCart,
+  removeFromCart,
 }: Props) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [text, setText] = useState("");
@@ -235,6 +244,7 @@ export function AssistantSheet({
       transcript: body.transcript,
       reply: body.reply,
       items: body.items,
+      cartRemovals: body.cart_removals ?? [],
       unmatched: body.unmatched,
       canned: body.canned,
     });
@@ -401,26 +411,32 @@ export function AssistantSheet({
         }).length
       : 0;
 
-  // Merge picked items into the cart and close. The final "Bestellung senden"
-  // happens in the CartSheet (foreman opens it from the bottom nav), which
-  // means we can drop the duplicate POST-/api/orders path here. The foreman
-  // never sees prices, so no total is shown on review.
+  // Merge picked items into the cart AND apply cart_removals if the AI
+  // surfaced any. The final "Bestellung senden" still happens in the
+  // CartSheet — we just stage edits to the cart here. Foreman never sees
+  // prices, so no total is shown on review.
   const applyToCart = useCallback(() => {
     if (status.kind !== "result") return;
     const picked = status.items.filter((it) => {
       const s = selected[it.product_id];
       return s?.selected && s.qty > 0;
     });
-    if (picked.length === 0) return;
+    const removals = status.cartRemovals;
+    if (picked.length === 0 && removals.length === 0) return;
     for (const it of picked) {
       const qty = selected[it.product_id]?.qty ?? it.qty;
       addToCart(it.product_id, qty);
     }
+    if (removals.length > 0 && removeFromCart) {
+      for (const r of removals) removeFromCart(r.product_id);
+    }
     refineItemsRef.current = null;
-    setStatus({ kind: "applied", count: picked.length });
-    // brief confirmation then close so the foreman sees the cart-icon red dot
+    setStatus({
+      kind: "applied",
+      count: picked.length + removals.length,
+    });
     setTimeout(() => onClose(), 900);
-  }, [addToCart, onClose, selected, status]);
+  }, [addToCart, removeFromCart, onClose, selected, status]);
 
   if (!open) return null;
 
@@ -526,6 +542,7 @@ export function AssistantSheet({
               reply={status.reply}
               canned={status.canned}
               items={status.items}
+              cartRemovals={status.cartRemovals}
               unmatched={status.unmatched}
               selected={selected}
               setSelected={setSelected}
@@ -682,6 +699,7 @@ function ResultPanel({
   reply,
   canned,
   items,
+  cartRemovals,
   unmatched,
   selected,
   setSelected,
@@ -690,6 +708,7 @@ function ResultPanel({
   reply: string;
   canned?: boolean;
   items: AssistantItem[];
+  cartRemovals: CartRemoval[];
   unmatched: AssistantResponse["unmatched"];
   selected: SelectedMap;
   setSelected: React.Dispatch<React.SetStateAction<SelectedMap>>;
@@ -762,6 +781,30 @@ function ResultPanel({
           );
         })}
       </ul>
+
+      {cartRemovals.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">
+            {copyDe["assistant.cart_removals_label"]}
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {cartRemovals.map((r) => (
+              <li
+                key={r.product_id}
+                className="flex items-center justify-between gap-2 text-sm text-rose-900"
+              >
+                <span className="truncate">— {r.name}</span>
+                <span className="shrink-0 text-[10px] uppercase tracking-wider text-rose-700">
+                  {r.supplier_sku}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11px] text-rose-700">
+            {copyDe["assistant.cart_removals_hint"]}
+          </p>
+        </div>
+      )}
 
       {unmatched.length > 0 && (
         <p className="rounded-2xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
