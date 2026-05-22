@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Check, Search, X } from "lucide-react";
 import { copyEn } from "@/lib/constants/copy.en";
 import { categories, type CategoryKey } from "@/lib/constants/categories";
@@ -19,8 +20,14 @@ export type CatalogRow = {
 };
 
 type Props = {
+  /** Server-filtered, server-paginated rows (≤ resultLimit). */
   products: CatalogRow[];
-  limit: number;
+  /** Total active rows matching the current query (for "X of TOTAL"). */
+  total: number;
+  /** Current `?q=` from the URL — seeds the search box on mount. */
+  query: string;
+  /** Page-size cap (so we can hint "showing first N — search to narrow"). */
+  resultLimit: number;
   // Server action passed down from the page (allowed in Next.js).
   updateProduct: (formData: FormData) => void | Promise<void>;
 };
@@ -49,20 +56,49 @@ const groupDot = (g: string | null): string =>
 const GHOST =
   "rounded-md border border-transparent bg-transparent px-1.5 py-1 transition-colors hover:border-zinc-200 hover:bg-zinc-50 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100";
 
-export function CatalogTable({ products, limit, updateProduct }: Props) {
-  const [query, setQuery] = useState("");
+const SEARCH_DEBOUNCE_MS = 280;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) =>
-      [p.name, p.supplier_sku, p.suppliers?.name, p.product_group, p.unit]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [products, query]);
+export function CatalogTable({
+  products,
+  total,
+  query,
+  resultLimit,
+  updateProduct,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Local mirror of `?q=` so typing feels instant; we push to the URL on a
+  // short debounce so the server re-queries without round-tripping every key.
+  const [input, setInput] = useState(query);
+
+  // Re-sync if the URL changes externally (back/forward, deep link).
+  const externalQuery = query;
+  const lastSynced = useRef(externalQuery);
+  useEffect(() => {
+    if (externalQuery !== lastSynced.current) {
+      lastSynced.current = externalQuery;
+      setInput(externalQuery);
+    }
+  }, [externalQuery]);
+
+  // Debounced push to the URL → server re-renders with the new query.
+  useEffect(() => {
+    if (input === externalQuery) return;
+    const handle = setTimeout(() => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      const trimmed = input.trim();
+      if (trimmed.length === 0) params.delete("q");
+      else params.set("q", trimmed);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [input, externalQuery, pathname, router, searchParams]);
+
+  const shown = products.length;
+  const hasQuery = externalQuery.length > 0;
+  const showingFirst = !hasQuery && total > shown;
 
   return (
     <div className="space-y-3">
@@ -71,16 +107,16 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             placeholder={copyEn["catalog.search"]}
             aria-label={copyEn["catalog.search"]}
             className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-9 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
-          {query && (
+          {input && (
             <button
               type="button"
-              onClick={() => setQuery("")}
+              onClick={() => setInput("")}
               aria-label={copyEn["catalog.search_clear"]}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
             >
@@ -88,8 +124,10 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
             </button>
           )}
         </div>
-        <span className="shrink-0 text-xs font-medium text-zinc-500">
-          {query ? `${filtered.length} / ${products.length}` : `${products.length}`}
+        <span className="shrink-0 text-xs font-medium text-zinc-500 tabular-nums">
+          {hasQuery
+            ? `${shown.toLocaleString("en-CH")} / ${total.toLocaleString("en-CH")}`
+            : `${total.toLocaleString("en-CH")}`}
         </span>
       </div>
 
@@ -105,7 +143,7 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
       </div>
 
       <div className="space-y-3 sm:space-y-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-zinc-200 sm:bg-white sm:shadow-sm">
-        {filtered.map((p) => (
+        {products.map((p) => (
           <form
             key={p.id}
             action={updateProduct}
@@ -186,16 +224,19 @@ export function CatalogTable({ products, limit, updateProduct }: Props) {
           </form>
         ))}
 
-        {filtered.length === 0 && (
+        {products.length === 0 && (
           <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500 sm:rounded-none sm:border-0 sm:border-t sm:border-zinc-100">
-            {copyEn["catalog.search_empty"]} “{query}”.
+            {hasQuery
+              ? `${copyEn["catalog.search_empty"]} “${externalQuery}”.`
+              : copyEn["catalog.empty"]}
           </p>
         )}
       </div>
 
-      {!query && products.length === limit && (
+      {showingFirst && (
         <p className="px-1 text-xs text-zinc-400">
-          Showing first {limit} active products on this project.
+          Showing first {resultLimit.toLocaleString("en-CH")} of{" "}
+          {total.toLocaleString("en-CH")} — type to narrow.
         </p>
       )}
     </div>

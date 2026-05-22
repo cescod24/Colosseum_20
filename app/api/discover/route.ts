@@ -79,7 +79,13 @@ async function loadCatalog(
   if (projectId) {
     q = q.eq("project_products.project_id", projectId);
   }
-  const { data, error } = await q.limit(500);
+  // Order by created_at so the original anchor C-materials (seeded first)
+  // sit inside the 500-row cap even when the catalog grows to 50k via
+  // `npm run seed:bulk`. Without this, the cap pulls arbitrary rows and the
+  // AI scoring would miss the canonical Schrauben / Handschuhe / etc.
+  const { data, error } = await q
+    .order("created_at", { ascending: true })
+    .limit(500);
   if (error) {
     console.warn("[discover] catalog load failed:", error.message);
     return [];

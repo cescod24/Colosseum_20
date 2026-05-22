@@ -8,7 +8,15 @@ import { CatalogTable, type CatalogRow } from "./CatalogTable";
 
 export const dynamic = "force-dynamic";
 
-const LIMIT = 200;
+// Server-side search returns at most this many rows per query — the catalog
+// can hold tens of thousands of products, so we never ship them all to the
+// client. The total count is shown separately; narrowing happens via ?q=.
+const RESULT_LIMIT = 100;
+
+// Strip characters that would break a PostgREST .or() filter string.
+function sanitizeQuery(q: string): string {
+  return q.replace(/[%,()*:\\]/g, " ").trim().slice(0, 80);
+}
 
 async function updateProduct(formData: FormData) {
   "use server";
@@ -38,7 +46,11 @@ async function updateProduct(formData: FormData) {
   revalidatePath("/procurement/catalog");
 }
 
-export default async function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const role = await getDemoRole();
   const profile = role ? await resolveProfileForRole(role) : null;
 
@@ -55,37 +67,33 @@ export default async function CatalogPage() {
     );
   }
 
+  const { q: qRaw } = await searchParams;
+  const query = sanitizeQuery((qRaw ?? "").toString());
+
   const supabase = getServerClient();
 
-  const { data: linkRows } = await supabase
-    .from("project_products")
-    .select("product_id")
-    .eq("project_id", profile.project_id);
+  // Inner-join project_products so the catalog scopes to this project, then
+  // ILIKE-filter on name / SKU / group. Scales to tens of thousands without
+  // round-tripping a million ids through the client.
+  let q = supabase
+    .from("products")
+    .select(
+      "id, name, supplier_sku, product_group, unit, unit_price, currency, hazardous, status, suppliers (name), project_products!inner(project_id)",
+      { count: "exact" },
+    )
+    .eq("project_products.project_id", profile.project_id)
+    .eq("status", "active");
 
-  const ids = (linkRows ?? []).map((r) => r.product_id as string);
-
-  if (ids.length === 0) {
-    return (
-      <section className="space-y-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          {copyEn["catalog.title"]}
-        </h1>
-        <p className="rounded-xl border border-dashed border-zinc-300 bg-white p-6 text-sm text-zinc-500">
-          {copyEn["catalog.empty"]}
-        </p>
-      </section>
+  if (query.length > 0) {
+    const pat = `%${query}%`;
+    q = q.or(
+      `name.ilike.${pat},supplier_sku.ilike.${pat},product_group.ilike.${pat}`,
     );
   }
 
-  const { data: productsRaw, error } = await supabase
-    .from("products")
-    .select(
-      "id, name, supplier_sku, product_group, unit, unit_price, currency, hazardous, status, suppliers (name)",
-    )
-    .in("id", ids)
-    .eq("status", "active")
+  const { data: productsRaw, count, error } = await q
     .order("name", { ascending: true })
-    .limit(LIMIT);
+    .limit(RESULT_LIMIT);
 
   if (error) {
     return (
@@ -101,6 +109,7 @@ export default async function CatalogPage() {
   }
 
   const products = (productsRaw ?? []) as unknown as CatalogRow[];
+  const total = count ?? products.length;
 
   return (
     <section className="space-y-6">
@@ -118,7 +127,9 @@ export default async function CatalogPage() {
 
       <CatalogTable
         products={products}
-        limit={LIMIT}
+        total={total}
+        query={query}
+        resultLimit={RESULT_LIMIT}
         updateProduct={updateProduct}
       />
     </section>

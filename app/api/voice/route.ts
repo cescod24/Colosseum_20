@@ -89,7 +89,12 @@ async function loadCatalog(
     )
     .eq("status", "active");
   if (projectId) q = q.eq("project_products.project_id", projectId);
-  const { data, error } = await q.limit(500);
+  // Order by created_at so the original anchor C-materials (seeded first)
+  // sit inside the 500-row cap even when the catalog grows to 50k via
+  // `npm run seed:bulk`.
+  const { data, error } = await q
+    .order("created_at", { ascending: true })
+    .limit(500);
   if (error) {
     console.warn("[voice] catalog load failed:", error.message);
     return [];
