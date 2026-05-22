@@ -13,6 +13,9 @@ export const copyEn: Copy = {
 
   "catalog.title": "Catalog",
   "catalog.subtitle": "Active products on this project",
+  "catalog.search": "Search by name, SKU, supplier or group…",
+  "catalog.search_empty": "No products match",
+  "catalog.search_clear": "Clear",
   "catalog.empty": "No products linked to this project yet. Ingest a CSV or PDF to populate the catalog.",
   "catalog.col_name": "Name",
   "catalog.col_supplier": "Supplier",

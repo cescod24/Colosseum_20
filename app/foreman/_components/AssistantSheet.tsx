@@ -572,7 +572,7 @@ export function AssistantSheet({
                 type="button"
                 onClick={onMicTap}
                 aria-label={copyDe["assistant.start_listening"]}
-                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-hover text-brand shadow-sm transition-transform active:scale-95"
+                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gold text-zinc-900 shadow-sm transition-transform active:scale-95"
               >
                 <Mic className="h-5 w-5" />
               </button>
