@@ -128,18 +128,47 @@ export default async function QueuePage() {
     }
   }
 
+  const pendingValue = orders.reduce(
+    (sum, o) => sum + Number(o.total),
+    0,
+  );
+  const pendingCurrency = orders[0]?.currency ?? "CHF";
+
   return (
     <section className="space-y-6">
       <RefreshPoller intervalMs={1000} />
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          {copyEn["queue.title"]}
-        </h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Procurement
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            {copyEn["queue.title"]}
+          </h1>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            {orders.length} pending
+          </span>
+          {orders.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
+              {fmtCurrency(
+                Math.round(pendingValue * 100) / 100,
+                pendingCurrency,
+              )}{" "}
+              value
+            </span>
+          )}
+        </div>
       </header>
 
       {orders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center text-sm text-zinc-500">
-          {copyEn["queue.empty"]}
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
+          <p className="text-sm text-zinc-500">{copyEn["queue.empty"]}</p>
+          <p className="mt-2 text-xs text-zinc-400">
+            Auto-refreshes every second — new submissions appear here live.
+          </p>
         </div>
       ) : (
         <ul className="space-y-4">

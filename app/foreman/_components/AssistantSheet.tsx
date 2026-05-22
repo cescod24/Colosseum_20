@@ -235,10 +235,33 @@ export function AssistantSheet({
       rec.start();
       setStatus({ kind: "recording", startedAt: Date.now() });
     } catch (err) {
-      console.warn("[assistant] mic permission denied", err);
+      console.warn("[assistant] mic failed", err);
       recordingStartedAtRef.current = null;
       stopStream();
-      setStatus({ kind: "denied" });
+      // Surface the real cause so the foreman knows what to fix.
+      const e = err as { name?: string; message?: string } | undefined;
+      const insecure =
+        typeof window !== "undefined" && !window.isSecureContext;
+      if (insecure || e?.name === "SecurityError") {
+        setStatus({
+          kind: "error",
+          message: copyDe["assistant.mic_insecure"],
+        });
+      } else if (e?.name === "NotAllowedError") {
+        setStatus({ kind: "denied" });
+      } else if (e?.name === "NotFoundError") {
+        setStatus({
+          kind: "error",
+          message: copyDe["assistant.mic_not_found"],
+        });
+      } else if (e?.name === "NotReadableError") {
+        setStatus({
+          kind: "error",
+          message: copyDe["assistant.mic_in_use"],
+        });
+      } else {
+        setStatus({ kind: "denied" });
+      }
     }
   }, [sendRequest]);
 
