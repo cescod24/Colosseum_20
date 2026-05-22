@@ -536,9 +536,15 @@ export function AssistantSheet({
         {/* Result → refinement input + "In den Warenkorb" footer */}
         {status.kind === "result" ? (
           <footer className="space-y-3 border-t border-zinc-100 bg-white px-4 py-3 pb-6">
-            <p className="text-center text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-              {copyDe["assistant.refine_hint"]}
-            </p>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-amber-900">
+                <Sparkles className="h-3.5 w-3.5" />
+                {copyDe["assistant.refine_hint"]}
+              </p>
+              <p className="mt-0.5 pl-5 text-[11px] text-amber-800">
+                {copyDe["assistant.refine_examples"]}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"

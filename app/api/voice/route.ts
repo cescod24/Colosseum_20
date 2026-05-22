@@ -344,39 +344,75 @@ function buildSystemPrompt(opts: {
 
   if (isRefine) {
     lines.push(
-      "REFINEMENT-MODUS (sehr wichtig):",
-      "Du hast bereits eine Empfehlung gegeben. Der Polier möchte sie",
-      "anpassen. AKTUELLER VORSCHLAG:",
+      "═══════════════════════════════════════════════════════════════",
+      "REFINEMENT-MODUS — DU HAST BEREITS EINEN VORSCHLAG GEMACHT.",
+      "═══════════════════════════════════════════════════════════════",
+      "Der Polier WILL den anpassen, nicht eine neue Empfehlung starten.",
+      "",
+      "AKTUELLER VORSCHLAG:",
       currentList,
       "",
-      "Regeln für die Anpassung:",
-      '- Wenn der Polier eine Menge ändert ("mach 100 Schrauben, nicht 50",',
-      '  "doppelt so viele Handschuhe", "nur 1 Bohrer"): aktualisiere',
-      "  die qty des entsprechenden SKUs in items. Andere items unverändert lassen.",
-      "- PRONOMEN-REFERENZEN auflösen — sehr wichtig:",
-      '  * "Ich will 50 davon" / "50 von denen" / "fünfzig stück davon" /',
-      '    "fanne 50" / "make it 50": Wenn EIN item in der Liste klar das',
-      "    Subjekt ist (der zuletzt vom Polier erwähnte Artikel, oder das",
-      "    einzige skalierbare wie Schrauben/Dübel/Kabelbinder), setze",
-      "    seine qty auf die genannte Zahl. Wenn mehrere Items in Frage",
-      "    kommen, nimm das mit der größten qty (typischerweise das",
-      "    Hauptmaterial der Aufgabe).",
-      '  * "doppelt so viele" / "die Hälfte" / "doppia" / "metà" / "double" /',
-      '    "half": multipliziere/halbiere ALLE qtys, behalte die Items.',
-      '  * "mehr/weniger X": +/- 50% von qty für das SKU X.',
-      '- Wenn der Polier ein item HINZUFÜGT ("auch noch ein Silikon",',
-      '  "und 5 Schraubendreher", "aggiungi"): füge das neue SKU zu items',
-      "  hinzu. Alle bestehenden items bleiben.",
-      '- Wenn der Polier ein item ENTFERNEN möchte ("entferne den Bohrer",',
-      '  "ohne Tape", "den letzten brauche ich nicht", "togli", "remove"):',
-      "  lass das SKU aus der neuen items-Liste weg.",
-      "- Bei einer komplett neuen Anforderung (z.B. der Polier nennt eine",
-      "  ganz neue Aufgabe wie 'Fenster abdichten'): generiere eine neue",
-      "  Liste, ignoriere den aktuellen Vorschlag.",
-      "- WICHTIG: items in der Antwort ist die VOLLSTÄNDIGE neue Liste,",
-      "  nicht nur die Änderungen. Wenn der Polier 'mach 100 Schrauben'",
-      "  sagt und im Vorschlag auch Tape stand, MUSS Tape weiterhin in",
-      "  items stehen.",
+      "GOLDENE REGEL — VERLETZE SIE NIEMALS:",
+      "items in deiner Antwort ist die VOLLSTÄNDIGE neue Liste. ALLES",
+      "was im AKTUELLEN VORSCHLAG steht und der Polier NICHT explizit",
+      "ändert oder entfernt, MUSS unverändert in items bleiben (selber",
+      "SKU, selbe qty). Du baust auf der Liste auf, du ersetzt sie NICHT.",
+      "",
+      "RICHTIG-vs-FALSCH BEISPIELE (lerne diese auswendig):",
+      "",
+      "Aktuell: [200×C003 Schraube, 50×C005 Dübel, 1×C046 Wasserwaage, 2×C019 Handschuhe]",
+      'Polier sagt: "dimezza le viti" / "halbiere die Schrauben"',
+      "  ✅ RICHTIG: [100×C003, 50×C005, 1×C046, 2×C019]",
+      "  ❌ FALSCH:  [100×C003]   (Dübel/Wasserwaage/Handschuhe verloren!)",
+      "",
+      "Aktuell: [200×C003, 50×C005, 1×C046, 2×C019]",
+      'Polier sagt: "aggiungi anche del nastro" / "auch ein Tape dazu"',
+      "  ✅ RICHTIG: [200×C003, 50×C005, 1×C046, 2×C019, 2×C027 Panzertape]",
+      "  ❌ FALSCH:  [2×C027]   (alles andere verloren!)",
+      "",
+      "Aktuell: [200×C003, 50×C005, 1×C046, 2×C019]",
+      'Polier sagt: "togli i guanti" / "ohne Handschuhe"',
+      "  ✅ RICHTIG: [200×C003, 50×C005, 1×C046]   (nur Handschuhe weg)",
+      "  ❌ FALSCH:  [200×C003]   (Dübel/Wasserwaage auch verloren!)",
+      "",
+      "Aktuell: [200×C003, 50×C005, 1×C046, 2×C019]",
+      'Polier sagt: "mach 500 Schrauben"',
+      "  ✅ RICHTIG: [500×C003, 50×C005, 1×C046, 2×C019]",
+      "  ❌ FALSCH:  [500×C003]   (du sollst NUR die Menge ändern!)",
+      "",
+      "Aktuell: [200×C003, 50×C005, 1×C046, 2×C019]",
+      'Polier sagt: "und auch 2 Tuben Silikon und ein Tape"',
+      "  ✅ RICHTIG: [200×C003, 50×C005, 1×C046, 2×C019, 2×C039 Silikon, 1×C027 Panzertape]",
+      "  ❌ FALSCH:  [2×C039, 1×C027]   (du HÄNGST an, du ersetzt nicht!)",
+      "",
+      "KOMPLETT NEUER AUFTRAG (Ausnahme):",
+      'Wenn der Polier eine ganz neue Aufgabe nennt ("Fenster abdichten",',
+      '"Tisch bauen", "PSA für neuen Mitarbeiter") → starte mit leerer Liste.',
+      "Das ist nur dann, wenn klar eine ANDERE Aufgabe gemeint ist, nicht",
+      "eine Anpassung der aktuellen.",
+      "",
+      "VAGE ANPASSUNGEN:",
+      '- "weniger X" / "diminuisci X" / "decrement X" → qty(X) × 0.5,',
+      "  mindestens 1, ganzzahlig.",
+      '- "mehr X" / "più X" / "more X" → qty(X) × 2.',
+      '- "dimezza" / "halbiere" / "halve" (ohne Objekt) → ALLE qtys ×0.5.',
+      '- "raddoppia" / "verdopple" / "double" (ohne Objekt) → ALLE qtys ×2.',
+      '- "decrementa di N" / "minus N" → qty(X) − N, mindestens 1.',
+      '- "incrementa di N" / "plus N" → qty(X) + N.',
+      "",
+      "PRONOMEN-REFERENZEN auflösen:",
+      '  * "Ich will 50 davon" / "fünfzig stück davon" / "fanne 50":',
+      "    Wenn EIN Item in der Liste klar das Subjekt ist (der zuletzt",
+      "    erwähnte Artikel, oder das einzige skalierbare wie",
+      "    Schrauben/Dübel/Kabelbinder), setze seine qty auf die Zahl.",
+      "    Wenn mehrere Items in Frage kommen, nimm das mit der größten",
+      "    qty (typischerweise das Hauptmaterial der Aufgabe).",
+      "",
+      "Bevor du antwortest, ZÄHLE:",
+      "  Anzahl items im AKTUELLEN VORSCHLAG = N",
+      "  Polier hat M Items entfernt, K Items hinzugefügt.",
+      "  → items in deiner Antwort MUSS (N − M + K) Einträge haben",
+      "    (außer wenn du Mengen änderst, dann genau N).",
       "",
     );
   } else {
@@ -625,7 +661,79 @@ export async function POST(req: Request) {
     },
   });
 
-  const { items, unmatched } = resolveItems(ai.items, catalog);
+  const resolved = resolveItems(ai.items, catalog);
+  let items = resolved.items;
+  const unmatched = resolved.unmatched;
+
+  // Server-side refinement safety net. The client also runs mergePreservedItems
+  // (defence in depth), but doing it here means a future client (mobile app,
+  // CLI, integration test) gets the same preservation guarantee without
+  // having to reimplement the logic. The rule: if we're refining and the
+  // model dropped an item the polier didn't explicitly remove, restore it.
+  if (currentItemsWithNames.length > 0) {
+    const returnedSkus = new Set(items.map((it) => it.supplier_sku));
+    const bySku = new Map(catalog.map((c) => [c.supplier_sku, c]));
+    const tLower = transcript.toLowerCase();
+    const removalVerbs = [
+      "entfern", "weg", "ohne", "lösche", "lösch", "raus", "kein",
+      "togli", "rimuov", "elimin", "senza",
+      "remove", "drop", "delete", "without", "no more",
+    ];
+    const hasRemovalVerb = removalVerbs.some((v) => tLower.includes(v));
+    // Reverse-index SYNONYMS so we can ask "does this German product-name
+    // token have an Italian/English synonym mentioned in the transcript?"
+    // Without this, "togli i guanti" can't be matched to "Arbeitshandschuhe".
+    const reverseSyn = new Map<string, string[]>(); // de-token → [synonyms]
+    for (const [foreign, deTokens] of Object.entries(SYNONYMS)) {
+      for (const de of deTokens) {
+        const list = reverseSyn.get(de) ?? [];
+        list.push(foreign);
+        reverseSyn.set(de, list);
+      }
+    }
+    const preserved: AssistantItem[] = [];
+    for (const prev of currentItemsWithNames) {
+      if (returnedSkus.has(prev.supplier_sku)) continue;
+      // Did the polier mention this item alongside a removal verb? Match
+      // the German product name AND its known DE/IT/EN synonyms.
+      let askedToRemove = false;
+      if (hasRemovalVerb) {
+        const germanTokens = `${prev.name} ${prev.supplier_sku}`
+          .toLowerCase()
+          .split(/[^a-z0-9äöüß]+/u)
+          .filter((tk) => tk.length >= 3);
+        const allTokens = new Set<string>(germanTokens);
+        for (const de of germanTokens) {
+          for (const [deStem, synList] of reverseSyn.entries()) {
+            if (de.includes(deStem)) {
+              for (const s of synList) allTokens.add(s);
+            }
+          }
+        }
+        askedToRemove = Array.from(allTokens).some((tk) =>
+          tLower.includes(tk),
+        );
+      }
+      if (askedToRemove) continue;
+      const cat = bySku.get(prev.supplier_sku);
+      if (!cat) continue;
+      preserved.push({
+        product_id: cat.product_id,
+        supplier_sku: cat.supplier_sku,
+        name: cat.name,
+        unit: cat.unit,
+        unit_price: cat.unit_price,
+        qty: prev.qty,
+      });
+    }
+    if (preserved.length > 0) {
+      items = [...items, ...preserved];
+      console.log(
+        `[voice] refinement: model returned ${items.length - preserved.length} items, restored ${preserved.length} preserved from previous turn`,
+      );
+    }
+  }
+
   const canned = !process.env.OPENAI_API_KEY || ai === fallback;
 
   const body: AssistantResponse = {
