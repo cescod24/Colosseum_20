@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { copyDe } from "@/lib/constants/copy.de";
 import { categories, type CategoryDefinition } from "@/lib/constants/categories";
+import { ForemanFooterNav } from "@/app/foreman/_components/ForemanFooterNav";
 
 const ICONS: Record<string, LucideIcon> = {
   Wrench,
@@ -33,7 +34,7 @@ export default function InfoPage() {
   >;
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-12 pt-4">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-28 pt-4">
       <header className="flex items-center gap-2">
         <Link
           href="/foreman"
@@ -82,6 +83,8 @@ export default function InfoPage() {
       >
         {copyDe["info.back"]}
       </Link>
+
+      <ForemanFooterNav currentPath="/foreman/info" />
     </div>
   );
 }

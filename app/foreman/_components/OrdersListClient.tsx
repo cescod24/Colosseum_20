@@ -236,7 +236,7 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
   const shown = view === "active" ? activeOrders : historyOrders;
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-8 pt-4">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pb-28 pt-4">
       <header className="flex items-center gap-2">
         <Link
           href="/foreman"

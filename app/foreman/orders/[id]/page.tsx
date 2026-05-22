@@ -9,6 +9,7 @@ import { copyDe } from "@/lib/constants/copy.de";
 import { StatusPill, type OrderStatus } from "@/app/foreman/_components/StatusPill";
 import { ConfirmDeliveryCard } from "./ConfirmDeliveryCard";
 import { LineDecisionsList, type LineRow } from "./LineDecisionsList";
+import { ForemanFooterNav } from "@/app/foreman/_components/ForemanFooterNav";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ export default async function ForemanOrderDetail({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-12 pt-4">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-28 pt-4">
       <header className="flex items-center gap-2">
         <Link
           href="/foreman/orders"
@@ -158,6 +159,8 @@ export default async function ForemanOrderDetail({
           alreadyDelivered={alreadyDelivered}
         />
       )}
+
+      <ForemanFooterNav currentPath="/foreman/orders" />
     </div>
   );
 }
