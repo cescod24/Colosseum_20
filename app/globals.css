@@ -126,5 +126,28 @@
   }
   html {
     @apply font-sans;
+    /* Allow Tailwind's safe-area-aware utilities to read iOS insets. */
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
   }
+  /* Hide native number input arrows on mobile — they get in the way of the
+     +/- steppers we ship for foreman quantity entry. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+/* Brand tokens — used sparingly on the role-picker, procurement chrome,
+   and the AI FAB. Construction-site amber works against the slate UI
+   without taking over. */
+:root {
+  --brand-500: oklch(0.78 0.16 70);
+  --brand-600: oklch(0.72 0.18 65);
+  --brand-50: oklch(0.97 0.04 80);
+  --brand-100: oklch(0.94 0.07 80);
 }

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { HardHat, Wrench, ClipboardCheck } from "lucide-react";
 import {
   DEMO_ROLES,
   type DemoRole,
@@ -7,10 +8,36 @@ import {
   setDemoRole,
 } from "@/lib/role";
 
-const ROLE_LABEL: Record<DemoRole, string> = {
-  "foreman-a": "Stefan Müller · Polier · Baustelle Zürich-West",
-  "foreman-b": "Marco Bianchi · Polier · Werkzeug & Befestigung",
-  procurement: "Anna Keller · Bauleitung & Procurement",
+type Persona = {
+  name: string;
+  role: string;
+  context: string;
+  Icon: typeof HardHat;
+  accent: string;
+};
+
+const PERSONA: Record<DemoRole, Persona> = {
+  "foreman-a": {
+    name: "Stefan Müller",
+    role: "Polier · Hochbau",
+    context: "Baustelle Zürich-West · PPE & Verbrauchsmaterial",
+    Icon: HardHat,
+    accent: "from-amber-500 to-orange-500",
+  },
+  "foreman-b": {
+    name: "Marco Bianchi",
+    role: "Polier · Trockenbau",
+    context: "Werkzeug & Befestigung · Bestellt regelmäßig",
+    Icon: Wrench,
+    accent: "from-sky-500 to-indigo-500",
+  },
+  procurement: {
+    name: "Anna Keller",
+    role: "Bauleitung & Procurement",
+    context: "Rahmenverträge · Genehmigt > 200 CHF",
+    Icon: ClipboardCheck,
+    accent: "from-emerald-500 to-teal-500",
+  },
 };
 
 const ROLE_TARGET: Record<DemoRole, string> = {
@@ -39,58 +66,79 @@ export default async function Page() {
   const current = await getDemoRole();
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
-        <header className="space-y-1 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Site Order — Demo
-          </p>
-          <h1 className="text-2xl font-semibold text-zinc-900">
+    <main className="flex flex-1 items-center justify-center bg-gradient-to-b from-zinc-50 via-zinc-50 to-amber-50/30 px-4 py-10 sm:py-16">
+      <div className="w-full max-w-md space-y-6">
+        <header className="space-y-3 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
+            <HardHat className="h-3.5 w-3.5" />
+            Site Order
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
             Wer bist du gerade?
           </h1>
-          <p className="text-sm text-zinc-600">
-            Schnellumschalter für die Demo. Keine echte Anmeldung — die Rolle
-            wird in einem Cookie gespeichert.
+          <p className="mx-auto max-w-xs text-sm text-zinc-600">
+            C-Material schnell bestellen — für die Baustelle, ohne Telefon
+            und ohne Excel.
           </p>
         </header>
 
         <div className="space-y-3">
-          {DEMO_ROLES.map((role) => (
-            <form key={role} action={pickRole}>
-              <input type="hidden" name="role" value={role} />
-              <button
-                type="submit"
-                className={`w-full rounded-xl border px-5 py-4 text-left text-base font-medium transition-colors ${
-                  current === role
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-200 bg-white text-zinc-900 hover:border-zinc-400"
-                }`}
-              >
-                {ROLE_LABEL[role]}
-              </button>
-            </form>
-          ))}
+          {DEMO_ROLES.map((role) => {
+            const p = PERSONA[role];
+            const Icon = p.Icon;
+            const active = current === role;
+            return (
+              <form key={role} action={pickRole}>
+                <input type="hidden" name="role" value={role} />
+                <button
+                  type="submit"
+                  className={`group flex w-full items-center gap-4 rounded-2xl border bg-white p-4 text-left transition-all hover:-translate-y-px hover:shadow-md ${
+                    active
+                      ? "border-zinc-900 ring-2 ring-zinc-900"
+                      : "border-zinc-200 hover:border-zinc-400"
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-12 w-12 flex-none items-center justify-center rounded-xl bg-gradient-to-br ${p.accent} text-white shadow-sm`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <span className="flex-1 space-y-0.5">
+                    <span className="block text-base font-semibold text-zinc-900">
+                      {p.name}
+                    </span>
+                    <span className="block text-xs font-medium text-zinc-600">
+                      {p.role}
+                    </span>
+                    <span className="block text-[11px] text-zinc-500">
+                      {p.context}
+                    </span>
+                  </span>
+                </button>
+              </form>
+            );
+          })}
         </div>
 
         {current && (
           <form action={resetRole}>
             <button
               type="submit"
-              className="w-full rounded-xl border border-transparent px-5 py-2 text-sm text-zinc-500 hover:text-zinc-900"
+              className="w-full rounded-xl px-5 py-2 text-sm text-zinc-500 hover:text-zinc-900"
             >
               Rolle zurücksetzen
             </button>
           </form>
         )}
 
-        <footer className="border-t border-zinc-100 pt-4 text-center text-xs text-zinc-400">
+        <footer className="text-center text-[11px] text-zinc-400">
           {current ? (
             <>
               Aktive Rolle:{" "}
               <span className="font-mono text-zinc-600">{current}</span>
             </>
           ) : (
-            <>Noch keine Rolle gewählt.</>
+            <>Demo · keine echte Anmeldung · Rolle im Cookie</>
           )}
         </footer>
       </div>
