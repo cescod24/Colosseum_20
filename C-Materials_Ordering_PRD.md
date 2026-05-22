@@ -169,7 +169,7 @@ We picked the stack ourselves rather than letting a generator pick it; that cost
 - **Hosting:** **Vercel** (Next.js native) for the app; Supabase Cloud for the DB. No local Docker.
 
 **Libraries on top:**
-- **`openai`** — wrapped in `lib/ai.ts` with a timeout and a canned-JSON fallback for missing key / timeout / error. Used by `POST /api/ingest` (PDF → product rows) and `POST /api/discover` (task → ranked products). Default model: `gpt-4o-mini` (override via `OPENAI_MODEL`).
+- **`openai`** — wrapped in `lib/ai.ts` with a timeout and a canned-JSON fallback for missing key / timeout / error. Used by `POST /api/ingest` (PDF → product rows) and `POST /api/discover` (task → ranked products). Default model: `gpt-4o` (override via `OPENAI_MODEL`).
 - **`@supabase/supabase-js` + `@supabase/ssr`** — two clients: `lib/supabase/server.ts` (service role, server-only) and `lib/supabase/browser.ts` (anon key, browser).
 - **Supabase Realtime** — pushes order-status changes live to the foreman screen, with a 5 s polling fallback merged client-side so the live flip never fails on stage.
 - **PapaParse** — CSV ingestion (client-side parse for the upload UI, server-side normalisation in the route handler).

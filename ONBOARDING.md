@@ -19,7 +19,7 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
   (`/foreman/orders`, **whole card tappable → detail; cards show red
   "{n}/{total} abgelehnt" + green "Vorschlag vom Einkauf" badges when
   procurement returned a partial decision**), order detail with
-  **delivery-note OCR** (`/foreman/orders/[id]` → camera → `gpt-4o-mini`
+  **delivery-note OCR** (`/foreman/orders/[id]` → camera → `gpt-4o`
   vision → flips to Delivered) **and per-line decisions** (declined lines
   show strike-through + reason + a "Vorschlag annehmen" / "Ablehnen" card
   that adds the suggested product to the cart for a fresh Bestellung), and
@@ -31,7 +31,7 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
   ingest (`/procurement/ingest`), mock **Häfele punchout**
   (`/procurement/ingest/punchout`), and the **spend dashboard + decision
   recap** (`/procurement/dashboard`, live-refreshing).
-- **AI = OpenAI** (`lib/ai.ts`, `gpt-4o-mini`; `OPENAI_API_KEY` +
+- **AI = OpenAI** (`lib/ai.ts`, `gpt-4o`; `OPENAI_API_KEY` +
   `OPENAI_MODEL`). All AI + service-role writes are server-only. Every AI
   call has a canned fallback so a missing/slow key never breaks the demo.
 - **Live updates:** Supabase Realtime + **1 s polling** on the foreman
@@ -163,7 +163,7 @@ cp .env.example .env.local
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY
 #   SUPABASE_SERVICE_ROLE_KEY   (server-only — never import into a client component)
 #   OPENAI_API_KEY              (server-only — used via lib/ai.ts)
-#   OPENAI_MODEL                (optional — defaults to gpt-4o-mini)
+#   OPENAI_MODEL                (optional — defaults to gpt-4o)
 
 npm run dev    # http://localhost:3000
 ```

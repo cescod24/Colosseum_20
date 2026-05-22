@@ -15,7 +15,7 @@
 import "server-only";
 import OpenAI from "openai";
 
-export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
 export const AI_TIMEOUT_MS = 20_000;
 
 // Audio transcription (Whisper) gets its own timeout + model env var. Audio
