@@ -322,7 +322,8 @@ export default async function DashboardPage() {
             No orders yet.
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
               <tr>
                 <th className="px-5 py-2 font-medium">Order</th>
@@ -362,6 +363,7 @@ export default async function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </article>
     </section>

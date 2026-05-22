@@ -260,7 +260,8 @@ function RowsTable({
       >
         <span>{title}</span>
       </header>
-      <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="border-y border-zinc-100 text-xs uppercase tracking-wider text-zinc-500">
           <tr>
             <th className="px-5 py-2 font-medium">SKU</th>
@@ -280,14 +281,7 @@ function RowsTable({
             return (
               <tr key={row.supplier_sku} className="border-t border-zinc-100">
                 <td className="px-5 py-3 font-mono text-xs">{row.supplier_sku}</td>
-                <td className="px-5 py-3">
-                  {row.name}
-                  {row.hazardous && (
-                    <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700">
-                      hazardous
-                    </span>
-                  )}
-                </td>
+                <td className="px-5 py-3">{row.name}</td>
                 <td className="px-5 py-3 text-zinc-600">
                   {categoryLabel(row.product_group)}
                 </td>
@@ -329,6 +323,7 @@ function RowsTable({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
