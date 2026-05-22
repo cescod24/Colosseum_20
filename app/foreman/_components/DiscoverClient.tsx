@@ -153,17 +153,6 @@ export function DiscoverClient({ projectId, catalog }: Props) {
     });
   }
 
-  function removeFromCart(supplier_sku_or_product_id: string) {
-    setCart((prev) =>
-      prev.filter((l) => {
-        const p = productById.get(l.product_id);
-        if (p?.supplier_sku === supplier_sku_or_product_id) return false;
-        if (l.product_id === supplier_sku_or_product_id) return false;
-        return true;
-      }),
-    );
-  }
-
   const runSearch = useCallback(
     async (rawTask: string) => {
       const t = rawTask.trim();
@@ -468,8 +457,6 @@ export function DiscoverClient({ projectId, catalog }: Props) {
       <AssistantSheet
         open={assistantOpen}
         onClose={() => setAssistantOpen(false)}
-        addToCart={addToCart}
-        removeFromCart={removeFromCart}
         projectId={projectId}
         cart={cart}
       />

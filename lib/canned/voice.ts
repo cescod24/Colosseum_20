@@ -91,79 +91,62 @@ const ASSISTANT_HITS: ReadonlyArray<CannedAssistantHit> = [
   {
     matches: ["schrauben tx25", "tx25", "schrauben"],
     response: {
-      reply:
-        "Klar — zehn Schrauben TX25 sechs mal achtzig, zwei Rollen Panzertape und einen 8 mm Bohrer leg ich dir in den Warenkorb. Brauchst du noch Dübel dazu?",
-      intent: "order",
+      reply: "10× Schraube TX25 6×80, 2× Panzertape, 1× Bohrer 8 mm.",
       items: [
         { supplier_sku: "C003", qty: 10 },
         { supplier_sku: "C027", qty: 2 },
         { supplier_sku: "C034", qty: 1 },
       ],
-      alternatives: [{ supplier_sku: "C005", qty: 50 }],
-      removals: [],
-      follow_up: "Brauchst du Dübel zu den Schrauben?",
     },
   },
   {
     matches: ["handschuhe", "gehörschutz", "ppe-set", "psa", "neuer mitarbeiter"],
     response: {
       reply:
-        "Für einen neuen Mitarbeiter pack ich dir Helm, Gehörschutz, vier Paar Handschuhe, Warnweste und Schutzbrille ein — das ist unser PPE-Set.",
-      intent: "order",
+        "PSA-Set neuer Mitarbeiter: Handschuhe, Gehörschutz, Brille, Warnweste.",
       items: [
         { supplier_sku: "C019", qty: 4 },
         { supplier_sku: "C022", qty: 4 },
         { supplier_sku: "C021", qty: 2 },
         { supplier_sku: "C024", qty: 2 },
       ],
-      alternatives: [],
-      removals: [],
-      follow_up: null,
     },
   },
   {
     matches: ["silikon", "abdichten", "fenster", "reinigungsalkohol"],
     response: {
-      reply:
-        "Zum Fenster abdichten brauchst du Silikon transparent, Reinigungsalkohol zum Entfetten und Panzertape zum Abkleben. Reichen drei Tuben Silikon?",
-      intent: "suggest",
+      reply: "Fenster abdichten: Silikon, Reinigungsalkohol, Panzertape.",
       items: [
         { supplier_sku: "C039", qty: 3 },
         { supplier_sku: "C043", qty: 1 },
         { supplier_sku: "C027", qty: 1 },
       ],
-      alternatives: [{ supplier_sku: "C040", qty: 3 }],
-      removals: [],
-      follow_up: "Reichen drei Tuben oder lieber fünf?",
     },
   },
   {
     matches: ["werkzeug", "bohrer", "bit", "wasserwaage"],
     response: {
       reply:
-        "Werkzeug-Grundausstattung: zwei 8 mm Bohrer, je vier TX20 und TX25 Bits und eine 60 cm Wasserwaage. Soll ich was zur Werkzeugkiste hinzufügen?",
-      intent: "order",
+        "Werkzeug-Grundausstattung: Bohrer 8 mm, TX20+TX25 Bits, Wasserwaage.",
       items: [
         { supplier_sku: "C034", qty: 2 },
         { supplier_sku: "C032", qty: 4 },
         { supplier_sku: "C033", qty: 4 },
         { supplier_sku: "C046", qty: 1 },
       ],
-      alternatives: [],
-      removals: [],
-      follow_up: null,
     },
   },
   {
     matches: ["wie viel", "wieviel", "budget", "kosten", "preis", "rahmenvertrag"],
     response: {
+      // Even questions get a concrete recommendation: the foreman is in a
+      // hurry; budget questions get answered alongside a likely small order.
       reply:
-        "Aktuell auto-genehmigen wir bis 200 CHF pro Bestellung. Drüber geht's an den Bauleiter. Soll ich dir eine schnelle Übersicht geben?",
-      intent: "ask",
-      items: [],
-      alternatives: [],
-      removals: [],
-      follow_up: null,
+        "Bis 200 CHF auto-genehmigt. Hier ein kleines Standard-Set.",
+      items: [
+        { supplier_sku: "C027", qty: 2 },
+        { supplier_sku: "C047", qty: 1 },
+      ],
     },
   },
 ];

@@ -1741,3 +1741,185 @@ For a fresh chat continuing §14:
   flow is a strong "wow moment" candidate around the 00:35 mark
   (procurement's slot) — propose it before changing the script.
 ```
+
+---
+
+## 15. Slice A v3 — Action-oriented assistant (single-shot, no chat)
+
+User feedback: *"I don't want the AI to be a chat. I want it to do
+stuff. If I ask what materials I need it gives me suggestions from the
+catalog that I can select and then auto orders and waits for
+confirmation. Foreman don't have time to chat."*
+
+Supersedes the conversational §13 design while keeping the same
+`/api/voice` URL and the same OpenAI keys.
+
+### 15.1 Status
+
+- **Pending push** at the time of writing (commit batch follows this
+  doc update). Branch: `dev-a`. Will merge fast-forward into `main`.
+- Backend response shape was simplified — multi-turn chat fields
+  removed. Anything still expecting `alternatives` / `removals` /
+  `follow_up` / `intent` from `/api/voice` will break. The only such
+  caller was Slice A's old `AssistantSheet`, which was rewritten in
+  the same commit.
+
+### 15.2 What changed (vs §13)
+
+**Backend (`POST /api/voice`):**
+- Single-shot — no `history` field, no multi-turn context.
+- System prompt is **decisive**: pick one SKU per spoken term, never
+  ask follow-up, never offer alternatives, always produce items —
+  even when the foreman asks a question ("Was brauche ich für …?").
+- Response shape simplified:
+  ```
+  { transcript, reply, items, unmatched, canned?, redirect?, message? }
+  ```
+  `reply` is one short German line (max 12 words). `items` carries the
+  resolved product_id + name + unit + **unit_price** + qty so the
+  client can compute the total without ever displaying per-line
+  prices (foreman-never-sees-prices rule still honoured).
+- A-material guard unchanged (returns `redirect: true`).
+- Canned fallback (`cannedAssistantFor`) rewritten to the new shape;
+  even the "budget question" entry now returns concrete items
+  alongside the answer, so a no-key demo never produces an empty
+  recommendation.
+
+**Frontend (`AssistantSheet.tsx`):**
+- Chat history removed entirely — no message bubbles.
+- Single result panel: transcript header → one-line reply → list of
+  items each with **checkbox** (selected by default) + Stepper for qty
+  → single big **"Bestellung senden · X CHF"** button.
+- Tap that button → POST `/api/orders` with the selected lines → on
+  success show a green "Bestellung gesendet ✓" + total → 1.2 s later
+  close the sheet and route to `/foreman/orders` so the live status
+  pill (1 s polling from §14) takes over.
+- Mic recorder uses the `recordingStartedAtRef` pattern from §13.4b
+  so the stale-closure bug stays fixed.
+- Text input + Send + Mic stay in the footer when there's no result;
+  when there's a result, the footer becomes the submit button. Two
+  modes, never both at once.
+
+### 15.3 Pipeline
+
+```
+[Browser]                              app/foreman/_components/AssistantSheet.tsx
+  Tap mic / type → POST /api/voice (multipart audio OR JSON text)
+                ↓
+[Server]                                app/api/voice/route.ts
+  1. Parse multipart OR JSON
+  2. Transcribe via Whisper (or use text as-is)
+  3. isABlockedTerm(transcript) → { redirect, reply, message }      lib/constants/blocklist.ts
+  4. Load project catalog (real DB or fallbackCatalog)
+  5. callAI() with DECISIVE German prompt →                          lib/ai.ts
+       AiAssistantReply { reply, items: [{supplier_sku, qty}] }      lib/schema.ts
+     Canned fallback: cannedAssistantFor(transcript)                 lib/canned/voice.ts
+  6. resolve(): SKU → { product_id, name, unit, unit_price }
+  7. assistantResponseSchema.safeParse defence-in-depth
+                ↓
+[Browser]                              app/foreman/_components/AssistantSheet.tsx
+  ResultPanel: transcript + reply + checkable items + Stepper per line
+  Selected items + qtys → "Bestellung senden · X CHF"
+                ↓
+  POST /api/orders { items: [{product_id, qty}] }                     Dev B's handler
+                ↓
+  Success → "Bestellung gesendet ✓" → 1.2 s → close + push("/foreman/orders")
+```
+
+### 15.4 Files (what / where)
+
+| Path | Change |
+|---|---|
+| `lib/schema.ts` | `aiAssistantReplySchema` → `{ reply, items }`. `assistantResponseSchema` drops `intent`, `alternatives`, `removals`, `follow_up`. `assistantItemSchema` gains `unit_price: z.number().nullable()`. `AssistantTurn` removed. |
+| `app/api/voice/route.ts` | Rewritten. No `history` parsing; decisive system prompt; resolves SKU + attaches `unit_price`. |
+| `lib/canned/voice.ts` | `cannedAssistantFor` returns the new compact shape. All 5 entries reworked. |
+| `app/foreman/_components/AssistantSheet.tsx` | Rewritten. No chat history, no `addToCart` / `removeFromCart` props. Submits directly via `/api/orders`. |
+| `app/foreman/_components/ForemanHomeClient.tsx` | Drop `removeFromCart` (unused). `<AssistantSheet>` only gets `projectId` + `cart`. |
+| `app/foreman/_components/DiscoverClient.tsx` | Same: drop `removeFromCart`; trim `<AssistantSheet>` props. |
+| `lib/constants/copy.de.ts` | Untouched (same `assistant.*` keys reused). |
+
+### 15.5 Verified
+
+- POST text `"Brauche zwei Paar Handschuhe und 100 Schrauben TX25"` →
+  `reply: "2× Arbeitshandschuhe Gr.10, 100× Schraube TX25 6×80."`,
+  `items: [C020×2 @2.5, C003×100 @0.18]`, `alternatives=null`,
+  `removals=null`, `follow_up=null`, `intent=null`. Canned: false
+  (real OpenAI hit).
+- POST text `"Was brauche ich um ein Fenster abzudichten?"` (a
+  question!) → still returns concrete items: `3×C039, 1×C041`. The
+  decisive-prompt rule works.
+- POST text `"Brauche zehn Sack Beton"` → `redirect: true`, reply:
+  "Beton, Stahl & Bewehrung gehen über deinen Bauleiter. Hier nicht
+  bestellbar." No second LLM call.
+- typecheck + lint + build all green.
+
+### 15.6 Demo flow (the one that matters)
+
+1. Foreman taps the gradient sparkle button in the bottom nav.
+2. Sheet slides up with the intro "Hallo Polier. Sag mir was du
+   brauchst …".
+3. Tap mic, say "Ich brauche zehn Schrauben TX25 und zwei Rollen
+   Tape". Tap mic again to stop.
+4. Within ~1.5 s: transcript appears, then a one-line reply ("10×
+   Schraube TX25 6×80, 2× Panzertape silber."), then the items as a
+   checked list with Stepper widgets.
+5. Foreman may uncheck an item or bump a qty.
+6. Tap "Bestellung senden · 15.60 CHF" → POST `/api/orders` →
+   "Bestellung gesendet ✓" appears → 1.2 s later the sheet closes
+   and the foreman lands on `/foreman/orders` watching the live
+   status pill animate Approved → Ordered → Delivered.
+
+Total foreman keystrokes/taps: **3** (mic on, mic off, send). Total
+elapsed: well under 30 s. No chat, no editing in a separate cart, no
+two-step "übernehmen then go to cart then submit."
+
+### 15.7 Which AI API
+
+Same as §12 / §13 — no provider change. Documenting here so a future
+session doesn't have to dig:
+
+- **OpenAI Chat Completions** for reasoning: `openai.chat.completions
+  .create()`, model `OPENAI_MODEL` (default `gpt-4o-mini`).
+- **OpenAI Whisper** for voice→text: `openai.audio.transcriptions
+  .create()`, model `OPENAI_TRANSCRIBE_MODEL` (default `whisper-1`).
+- Both through `lib/ai.ts` (`callAI` + `transcribeAudio`), the
+  single server-only chokepoint. `OPENAI_API_KEY` lives in
+  `.env.local`, never reaches the browser.
+
+### 15.8 Out of scope (do NOT re-propose)
+
+- Multi-turn chat / message history (the whole point of v3 is to
+  remove it).
+- The AI manipulating the foreman's *existing* cart (add/remove). v3
+  treats the assistant's recommendation as its own discrete order;
+  the foreman can still use the cart sheet for manual additions,
+  but the assistant doesn't touch it.
+- Suggesting alternatives — the prompt explicitly tells the model to
+  pick one.
+- TTS (assistant speaks back).
+- Streaming Whisper.
+- Voice on `/foreman/discover` — that's Dev B's `VoiceSearch` (§11.B).
+
+### 15.9 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §15:
+- Slice A v3 (action-oriented assistant) is on dev-a, merging into
+  main this session.
+- /api/voice now returns { transcript, reply, items, unmatched,
+  canned?, redirect?, message? }. No history field, no multi-turn,
+  no alternatives, no removals, no follow_up, no intent. Anything
+  that wants those fields is reading a stale shape.
+- AssistantSheet.tsx is a single-shot result panel — tap mic / type
+  → result with checkboxes + Stepper → one tap "Bestellung senden
+  · X CHF" → POST /api/orders → success → close + route to
+  /foreman/orders.
+- Mic recorder still uses recordingStartedAtRef (see §13.4b);
+  don't introduce status closure dependence inside MediaRecorder
+  callbacks.
+- Both BottomNavBar and CartSheet (§13) are unchanged.
+- Same OpenAI (Chat Completions + Whisper) via lib/ai.ts. No new
+  API. No new env vars. No new migrations.
+- Dev B's 1 s polling (§14) keeps the live flip snappy after the
+  assistant submits.
+```

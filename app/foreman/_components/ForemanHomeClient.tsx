@@ -265,17 +265,6 @@ export function ForemanHomeClient({
     });
   }
 
-  function removeFromCart(supplier_sku_or_product_id: string) {
-    setCart((prev) =>
-      prev.filter((l) => {
-        const p = productById.get(l.product_id);
-        if (p?.supplier_sku === supplier_sku_or_product_id) return false;
-        if (l.product_id === supplier_sku_or_product_id) return false;
-        return true;
-      }),
-    );
-  }
-
   function loadKit(set: MaterialSet) {
     setCart((prev) => {
       const next = [...prev];
@@ -520,8 +509,6 @@ export function ForemanHomeClient({
       <AssistantSheet
         open={assistantOpen}
         onClose={() => setAssistantOpen(false)}
-        addToCart={addToCart}
-        removeFromCart={removeFromCart}
         projectId={projectId}
         cart={cart}
       />

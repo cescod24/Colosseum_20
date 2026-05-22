@@ -1,20 +1,24 @@
-// POST /api/voice — conversational foreman assistant
+// POST /api/voice — single-shot foreman order builder.
+//
+// Foremen don't chat. One utterance in → one decisive recommendation out.
+// No history, no follow-up questions, no alternatives. The client renders
+// the items + total + a single "Bestellung senden · X CHF" button.
 //
 // Accepts EITHER:
 //   - multipart/form-data with `audio` (audio/webm preferred), and optional
-//     `project_id`, `history`, `cart` (JSON-stringified).
-//   - JSON { text, history?, project_id?, cart? } when the user typed.
+//     `project_id`, `cart` (JSON-stringified, used as context so the AI
+//     doesn't suggest stuff already pending in the cart).
+//   - JSON { text, project_id?, cart? } when the user typed.
 //
 // Pipeline:
-//   1. Parse body (multipart OR JSON).
-//   2. If audio: transcribeAudio via Whisper (canned fallback on no-key).
-//      If text:  use the text as the transcript directly.
+//   1. Parse multipart OR JSON.
+//   2. Transcribe via Whisper if audio, else use text.
 //   3. A-material blocklist on the transcript → early redirect.
-//   4. Load project catalog + project context (rules / last order / kits)
-//      so the system prompt can reason about the project.
-//   5. callAI() with a German assistant prompt → AiAssistantReply.
-//      Canned fallback comes from cannedAssistantFor(transcript).
-//   6. Resolve SKUs in items + alternatives; orphans → unmatched.
+//   4. Load project catalog (real DB or fallbackCatalog).
+//   5. callAI() with a decisive German prompt → AiAssistantReply = { reply, items }.
+//   6. Resolve SKUs from catalog; orphans go into `unmatched`. Server attaches
+//      unit_price (server-authoritative) so the client can compute the total
+//      without ever displaying per-line prices.
 //   7. Return AssistantResponse.
 
 import { NextResponse } from "next/server";
@@ -24,12 +28,10 @@ import { callAI, transcribeAudio } from "@/lib/ai";
 import {
   aiAssistantReplySchema,
   assistantResponseSchema,
-  assistantTurnSchema,
   type AiAssistantItem,
   type AiAssistantReply,
   type AssistantItem,
   type AssistantResponse,
-  type AssistantTurn,
   type VoiceUnmatched,
 } from "@/lib/schema";
 import { isABlockedTerm } from "@/lib/constants/blocklist";
@@ -43,7 +45,6 @@ export const runtime = "nodejs";
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIN_BYTES = 4 * 1024;
 const MAX_TEXT_LEN = 1000;
-const MAX_HISTORY_TURNS = 4;
 const CATALOG_LIMIT_FOR_PROMPT = 80; // keep the prompt small
 
 // ---------------------------------------------------------------------------
@@ -63,7 +64,8 @@ type CatalogRow = {
 type CartLineLite = { supplier_sku?: string; product_id?: string; qty: number };
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (inlined from /api/discover — see plan.md §12 for why we don't
+// extract a shared module).
 // ---------------------------------------------------------------------------
 
 function maybeServerClient(): SupabaseClient | null {
@@ -88,7 +90,7 @@ async function loadCatalog(
   if (projectId) q = q.eq("project_products.project_id", projectId);
   const { data, error } = await q.limit(500);
   if (error) {
-    console.warn("[voice/assistant] catalog load failed:", error.message);
+    console.warn("[voice] catalog load failed:", error.message);
     return [];
   }
   return (data ?? []).map((row) => ({
@@ -154,31 +156,31 @@ function buildSystemPrompt(opts: {
           .map((l) => `- ${l.qty}× ${l.supplier_sku} ${l.name}`)
           .join("\n");
   return [
-    "Du bist Polier-Assistent für die Schweizer Baustelle Zürich-West.",
-    "Du sprichst kurz, direkt und auf Deutsch. Du verstehst Bestellungen,",
-    "gibst Vorschläge zu Aufgaben und beantwortest kurze Fragen zum",
-    "Materialbedarf. Du erfindest keine Artikel.",
+    "Du bist der Polier-Ordnungsassistent für die Baustelle Zürich-West.",
+    "Der Polier hat KEINE Zeit zu plaudern. Er sagt was er braucht, du",
+    "antwortest mit einer konkreten, vollständigen Bestellungs-Empfehlung.",
     "",
-    `Bestellungen über ${opts.threshold} CHF gehen automatisch an den Bauleiter`,
-    "zur Freigabe. Beton, Stahl, Bewehrung und Schalung sind A-Material und",
-    "gehen NICHT über diese App — wenn der Polier sowas erwähnt, sag das.",
+    "STRIKTE REGELN:",
+    "- Antworte IMMER mit reinem JSON: { \"reply\": <kurze Bestätigung>, \"items\": [{ \"supplier_sku\", \"qty\" }] }",
+    "- reply ist EIN deutscher Satz, max 12 Wörter, kein Fragezeichen.",
+    "  Beispiel: \"10× Schraube TX25 6×80, 2× Panzertape, 1× Bohrer 8 mm.\"",
+    "- items: bis zu 8 Einträge. Jedes supplier_sku MUSS exakt im Katalog stehen.",
+    "- KEINE Rückfragen, KEINE Alternativen, KEINE Sets von Auswahlen.",
+    "- Bei mehrdeutigen Begriffen ('Schrauben') wähle EINEN sku — den",
+    "  meistverwendeten passenden.",
+    "- Wenn der Polier eine Frage stellt (\"was brauche ich für X?\"), gib trotzdem",
+    "  eine konkrete Bestellungs-Empfehlung mit items.",
+    "- Mengen: wenn der Polier eine Zahl sagt, nimm die. Sonst nimm eine",
+    "  Standard-Baustellenmenge (Handschuhe 4, Tape 2, Schrauben 50, Bohrer 1, …).",
     "",
-    "Antworte IMMER mit reinem JSON dieser Form:",
-    '{ "reply": <kurze deutsche Antwort>,',
-    '  "intent": "order"|"suggest"|"ask"|"clarify"|"remove"|"none",',
-    '  "items": [{ "supplier_sku", "qty" }],          // max 8',
-    '  "alternatives": [{ "supplier_sku", "qty" }],   // max 5; günstigere oder bessere Optionen',
-    '  "removals": ["<supplier_sku>", ...],           // max 8; wenn der Polier sagt "entferne X"',
-    '  "follow_up": <eine deutsche Klärungsfrage oder null> }',
+    `Genehmigungsschwelle: Bestellungen über ${opts.threshold} CHF gehen automatisch`,
+    "an den Bauleiter. Du musst das nicht in jedem reply erwähnen.",
     "",
-    "Regeln:",
-    "- Jedes supplier_sku MUSS exakt im Katalog stehen.",
-    "- qty ist eine positive ganze Zahl. Wenn keine Menge genannt: qty=1.",
-    "- Bei mehrdeutigen Begriffen ('Schrauben') WÄHLE EINEN sku — keine Duplikate.",
-    "- Wenn nichts zum Bestellen ist, items=[]. reply muss IMMER da sein.",
-    "- Kurzantwort: max 2 Sätze. Keine Floskeln.",
+    "Beton, Stahl, Bewehrung, Schalung gehen NICHT über diese App — wenn der",
+    "Polier sowas erwähnt, antworte trotzdem mit items: [] und reply, der",
+    "den Polier an den Bauleiter verweist.",
     "",
-    "Aktueller Warenkorb des Poliers:",
+    "Aktueller Warenkorb (nichts doppelt empfehlen):",
     cart,
     "",
     "Katalog (supplier_sku\tname (unit, group, preis, gefahrgut)):",
@@ -204,20 +206,11 @@ function resolveItems(
       supplier_sku: hit.supplier_sku,
       name: hit.name,
       unit: hit.unit,
+      unit_price: hit.unit_price,
       qty: it.qty,
     });
   }
   return { items, unmatched };
-}
-
-function parseHistory(raw: unknown): AssistantTurn[] {
-  if (!Array.isArray(raw)) return [];
-  const safe: AssistantTurn[] = [];
-  for (const t of raw.slice(-MAX_HISTORY_TURNS)) {
-    const parsed = assistantTurnSchema.safeParse(t);
-    if (parsed.success) safe.push(parsed.data);
-  }
-  return safe;
 }
 
 function summariseCart(
@@ -237,15 +230,22 @@ function summariseCart(
   return out;
 }
 
+function safeJson(s: string | null): unknown {
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // POST handler
 // ---------------------------------------------------------------------------
 
 type Parsed = {
   transcript: string;
-  fromAudio: boolean;
   projectId?: string;
-  history: AssistantTurn[];
   cart: CartLineLite[];
   tooShort?: boolean;
 };
@@ -261,7 +261,6 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
     }
     const audio = form.get("audio");
     const projectId = (form.get("project_id") as string | null) ?? undefined;
-    const historyJson = (form.get("history") as string | null) ?? null;
     const cartJson = (form.get("cart") as string | null) ?? null;
     if (!(audio instanceof File) || audio.size === 0) {
       return NextResponse.json({ error: "audio required" }, { status: 400 });
@@ -269,32 +268,16 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
     if (audio.size > MAX_BYTES) {
       return NextResponse.json({ error: "audio too large" }, { status: 413 });
     }
+    const cart = Array.isArray(safeJson(cartJson)) ? (safeJson(cartJson) as CartLineLite[]) : [];
     if (audio.size < MIN_BYTES) {
-      return {
-        transcript: "",
-        fromAudio: true,
-        projectId,
-        history: parseHistory(historyJson ? safeJson(historyJson) : []),
-        cart: Array.isArray(safeJson(cartJson))
-          ? (safeJson(cartJson) as CartLineLite[])
-          : [],
-        tooShort: true,
-      };
+      return { transcript: "", projectId, cart, tooShort: true };
     }
     const transcript = await transcribeAudio({
       file: audio,
       language: "de",
       fallback: CANNED_VOICE_TRANSCRIPT,
     });
-    return {
-      transcript,
-      fromAudio: true,
-      projectId,
-      history: parseHistory(historyJson ? safeJson(historyJson) : []),
-      cart: Array.isArray(safeJson(cartJson))
-        ? (safeJson(cartJson) as CartLineLite[])
-        : [],
-    };
+    return { transcript, projectId, cart };
   }
   // JSON text path
   let body: unknown;
@@ -305,50 +288,26 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
   }
   const obj = (body ?? {}) as Record<string, unknown>;
   const text = typeof obj.text === "string" ? obj.text.trim().slice(0, MAX_TEXT_LEN) : "";
-  if (!text) {
-    return NextResponse.json({ error: "text required" }, { status: 400 });
-  }
+  if (!text) return NextResponse.json({ error: "text required" }, { status: 400 });
   return {
     transcript: text,
-    fromAudio: false,
     projectId: typeof obj.project_id === "string" ? obj.project_id : undefined,
-    history: parseHistory(obj.history),
     cart: Array.isArray(obj.cart) ? (obj.cart as CartLineLite[]) : [],
   };
-}
-
-function safeJson(s: string | null): unknown {
-  if (!s) return null;
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(req: Request) {
   const parsed = await parseRequest(req);
   if (parsed instanceof NextResponse) return parsed;
 
-  const {
-    transcript,
-    fromAudio,
-    projectId,
-    history,
-    cart: cartLines,
-    tooShort,
-  } = parsed;
+  const { transcript, projectId, cart: cartLines, tooShort } = parsed;
 
   if (tooShort) {
     const body: AssistantResponse = {
       transcript: "",
       reply: "Halt das Mikrofon etwas länger gedrückt — ich hab nichts gehört.",
-      intent: "none",
       items: [],
-      alternatives: [],
-      removals: [],
       unmatched: [],
-      follow_up: null,
       canned: true,
       message: "too_short",
     };
@@ -360,13 +319,9 @@ export async function POST(req: Request) {
     const body: AssistantResponse = {
       transcript,
       reply:
-        "Beton, Stahl und Bewehrung gehen über deinen Bauleiter — die hat die Rahmenverträge dafür. Sprich kurz mit ihm.",
-      intent: "ask",
+        "Beton, Stahl & Bewehrung gehen über deinen Bauleiter. Hier nicht bestellbar.",
       items: [],
-      alternatives: [],
-      removals: [],
       unmatched: [],
-      follow_up: null,
       redirect: true,
       message: "blocked",
     };
@@ -385,18 +340,13 @@ export async function POST(req: Request) {
   const cartSummary = summariseCart(cartLines, catalog);
 
   // LLM call (with canned fallback)
-  const fallback: AiAssistantReply = {
-    ...cannedAssistantFor(transcript),
-  };
+  const fallback: AiAssistantReply = { ...cannedAssistantFor(transcript) };
   const system = buildSystemPrompt({
     catalog,
     cartLines: cartSummary,
     threshold: 200,
   });
-  const userText =
-    history.length === 0
-      ? `Polier sagt: "${transcript}"\n\nReturn JSON only.`
-      : `Bisheriger Dialog:\n${history.map((t) => `${t.role === "user" ? "Polier" : "Assistent"}: ${t.text}`).join("\n")}\n\nPolier sagt jetzt: "${transcript}"\n\nReturn JSON only.`;
+  const userText = `Polier sagt: "${transcript}"\n\nReturn JSON only.`;
 
   const ai = await callAI<AiAssistantReply>({
     system,
@@ -409,42 +359,26 @@ export async function POST(req: Request) {
     },
   });
 
-  // Resolve items + alternatives
-  const itemRes = resolveItems(ai.items, catalog);
-  const altRes = resolveItems(ai.alternatives, catalog);
-  // Normalize removals: keep only SKUs the catalog knows about
-  const knownSkus = new Set(catalog.map((c) => c.supplier_sku));
-  const removals = ai.removals.filter((s) => knownSkus.has(s));
-
+  const { items, unmatched } = resolveItems(ai.items, catalog);
   const canned = !process.env.OPENAI_API_KEY || ai === fallback;
 
   const body: AssistantResponse = {
     transcript,
     reply: ai.reply,
-    intent: ai.intent,
-    items: itemRes.items,
-    alternatives: altRes.items,
-    removals,
-    unmatched: [...itemRes.unmatched, ...altRes.unmatched],
-    follow_up: ai.follow_up,
+    items,
+    unmatched,
     canned,
   };
-  // touch fromAudio so the type narrowing isn't unused
-  void fromAudio;
 
   const validated = assistantResponseSchema.safeParse(body);
   if (!validated.success) {
-    console.warn("[voice/assistant] response failed schema:", validated.error);
+    console.warn("[voice] response failed schema:", validated.error);
     return NextResponse.json(
       {
         transcript,
-        reply: "Hab gerade was nicht verstanden, versuch's nochmal.",
-        intent: "none",
+        reply: "Hab gerade was nicht verstanden. Versuch's nochmal.",
         items: [],
-        alternatives: [],
-        removals: [],
         unmatched: [],
-        follow_up: null,
         canned: true,
       },
       { status: 200 },

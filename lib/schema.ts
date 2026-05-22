@@ -271,14 +271,14 @@ export const aiAssistantItemSchema = z.object({
   qty: z.number().int().positive().max(999),
 });
 
+// Decisive single-shot order builder (no chat, no follow-up, no alternatives).
+// The foreman speaks/types once; the assistant returns a concrete item list
+// and a one-line confirmation. The client renders it as a result panel and
+// submits with one tap.
 export const aiAssistantReplySchema = z.object({
-  /** Short conversational German reply shown to the foreman. */
-  reply: z.string().min(1).max(600),
-  intent: z.enum(["order", "suggest", "ask", "clarify", "remove", "none"]),
+  /** One short German line confirming what's being ordered. */
+  reply: z.string().min(1).max(300),
   items: z.array(aiAssistantItemSchema).max(8).default([]),
-  alternatives: z.array(aiAssistantItemSchema).max(5).default([]),
-  removals: z.array(z.string().min(1)).max(8).default([]),
-  follow_up: z.string().min(1).max(200).nullable().default(null),
 });
 
 export const assistantItemSchema = z.object({
@@ -286,24 +286,21 @@ export const assistantItemSchema = z.object({
   supplier_sku: z.string().min(1),
   name: z.string().min(1),
   unit: z.string().min(1),
+  /** Server-authoritative unit price in CHF; client uses it only to compute
+   *  the cart total (per the never-show-per-line-price rule). Null when the
+   *  catalog row has no price set (rare; the line shows up but doesn't add
+   *  to the total). */
+  unit_price: z.number().nullable(),
   qty: z.number().int().positive(),
-});
-
-export const assistantTurnSchema = z.object({
-  role: z.enum(["user", "assistant"]),
-  text: z.string().min(1),
 });
 
 export const assistantResponseSchema = z.object({
   transcript: z.string(),
   reply: z.string(),
-  intent: z.enum(["order", "suggest", "ask", "clarify", "remove", "none"]),
   items: z.array(assistantItemSchema).max(8),
-  alternatives: z.array(assistantItemSchema).max(5),
-  removals: z.array(z.string().min(1)).max(8),
   unmatched: z.array(voiceUnmatchedSchema).max(8),
-  follow_up: z.string().nullable(),
   canned: z.boolean().optional(),
+  /** A-material guard hit; client renders the Bauleiter redirect, no submit. */
   redirect: z.boolean().optional(),
   message: z.string().optional(),
 });
@@ -311,5 +308,4 @@ export const assistantResponseSchema = z.object({
 export type AiAssistantItem = z.infer<typeof aiAssistantItemSchema>;
 export type AiAssistantReply = z.infer<typeof aiAssistantReplySchema>;
 export type AssistantItem = z.infer<typeof assistantItemSchema>;
-export type AssistantTurn = z.infer<typeof assistantTurnSchema>;
 export type AssistantResponse = z.infer<typeof assistantResponseSchema>;
