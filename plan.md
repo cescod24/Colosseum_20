@@ -1926,14 +1926,154 @@ For a fresh chat continuing §15:
 
 ---
 
-## 16. Demo-day artifact debt + one tactical code knob (judge critique v3)
+## 16. Slice A v3.1 — Anti-"Bauleiter" prompt + cart-merge + red dot + smart step
+
+User pivots after living with §15 for a session:
+
+1. *"non mi piace che devo per forza dire ‘mi serve il materiale per
+   costruire una porta’"* — assistant must intuit any task phrasing.
+2. *"non da errori del genere ‘Bitte an den Bauleiter für Materialien
+   wenden’"* — assistant must never deflect.
+3. *"dopo che da i suggerimenti il pulsante fosse aggiungi al carrello
+   e non ordina subito"* — re-add the cart-merge step.
+4. *"non mettere il numero 99+, metti solo un pallino rosso"* — simpler
+   badge.
+5. *"un incremento di uno è troppo poco per le viti"* — unit-aware step.
+6. *"se dico all'AI il numero che mi servirebbe cambia lui"* — qty
+   respect.
+
+### 16.1 Status
+
+- **Merged to `main`** (commit `eb55b28` this session).
+- No backend response-shape change (still §15's `{ transcript, reply,
+  items, unmatched, canned?, redirect?, message? }`). Just a stronger
+  prompt + a UI behaviour change.
+- No new env vars, no new migrations.
+
+### 16.2 Prompt hardening (`app/api/voice/route.ts`)
+
+The system prompt now explicitly forbids the failure modes the user
+saw. Highlights of what got added:
+
+- **ABSOLUTE TABUS** block in the prompt:
+  - `"frag den Bauleiter"`, `"wende dich an deinen Bauleiter"`,
+    `"geht über den Bauleiter"`, `"an den Bauleiter wenden"`,
+    `"Materialien beim Bauleiter anfragen"` — forbidden in the reply.
+  - `"Ich kann das nicht"` / `"Ich verstehe nicht"` — forbidden.
+  - Empty `items` list — forbidden. Model must always emit 1–8 picks.
+- **MENGEN-REGELN** block:
+  - If the foreman states a number ("500 Schrauben", "drei Tuben",
+    "fünfhundert"), **NIMM DIESE EXAKTE ZAHL**. Never replace with a
+    "standard" qty.
+  - German number-word table (zwei → tausend) so the model doesn't
+    mis-parse "fünfhundert" as 5.
+  - Fallback defaults only when no qty is stated.
+- **SPRACHE**: "Der Polier kann auf Deutsch, Italienisch oder Englisch
+  sprechen. Verstehe alle drei und antworte immer auf Deutsch."
+- **BEISPIELE** (task → recommendation) baked in: door install,
+  window sealing, PPE kit, drywall, tool reorder, cable laying,
+  500-screws qty pass-through. So the model has templates to mimic
+  instead of guessing from scratch.
+- `CATALOG_LIMIT_FOR_PROMPT` bumped 80 → 200 so the full seeded ~100
+  catalog fits without truncation.
+
+The A-material guard still fires server-side BEFORE the LLM call —
+that's the only path that produces the Bauleiter redirect, and it's
+deterministic (substring match in `lib/constants/blocklist.ts`).
+
+### 16.3 AssistantSheet — cart-merge flow
+
+Replaced the direct-submit pattern from §15 with a cart-merge:
+
+```
+[Tap sparkle → sheet opens]
+  ↓ speak / type
+[Result panel: transcript + reply + items with checkbox + Stepper]
+  ↓ tap "In den Warenkorb übernehmen · X CHF"
+[for each picked item → addToCart(product_id, qty)]
+[Sheet shows green "N Artikel im Warenkorb" → closes after 900ms]
+  ↓
+[Foreman taps cart icon in BottomNavBar — red dot indicates content]
+[CartSheet drawer opens → "Bestellung senden · TOTAL CHF" → submit]
+```
+
+The single duplicate POST to `/api/orders` that AssistantSheet did
+briefly in §15 is removed. There is now exactly one submit path for
+the whole foreman UI: `CartSheet`'s submit button → Dev B's
+`POST /api/orders`.
+
+### 16.4 BottomNavBar badge
+
+`!!badge && badge > 0` → an 8×8 px `bg-rose-600 rounded-full ring-2
+ring-white` dot in the top-right corner of the cart icon. No number.
+Empty cart → no dot at all. Same `aria-label` ("Warenkorb hat
+Artikel") so screen readers still get the signal.
+
+### 16.5 Unit-aware Stepper step
+
+`AssistantSheet.tsx` defines `stepFor(unit)`:
+
+| Unit | Step |
+|---|---|
+| `Stk` (screws, dübel, bits) | 10 |
+| `m` (wire, cable) | 5 |
+| everything else (`Rolle`, `Paar`, `Dose`, `Eimer`, `Liter`, `Flasche`, `Tub`, …) | 1 |
+
+`Stepper.tsx` already had an optional `step` prop (default 1); the
+result panel now passes `stepFor(it.unit)` per line. So tapping +/- on
+a screws row bumps by 10 — matching the per-unit chip presets
+(`chipsByUnit.Stk = [10, 25, 50, 100]`).
+
+### 16.6 Verified live (real OpenAI)
+
+| Input | Result |
+|---|---|
+| `"Mi serve il materiale per costruire una porta"` (Italian, **no** A-material) | reply `"Schrauben TX25, Dübel 8mm, Silikon, Bohrer 8mm."`, items `50×C003, 50×C005, 3×C039, 1×C034`. NO `redirect`, NO `Bauleiter`. |
+| `"Brauche fünfhundert Schrauben TX25"` | reply `"500× Schraube TX25 6x80"`, items `[500×C003]`. Number-word respected. |
+| `"Brauche zehn Sack Beton"` | server-side blocklist → `redirect=true`, friendly Bauleiter redirect (the only legitimate Bauleiter mention). |
+| Any non-A reply | `grep -i bauleiter` → 0 hits. |
+
+`typecheck` + `lint` + `build` all green.
+
+### 16.7 Out of scope (do NOT re-propose)
+
+- Voice-driven cart modification ("entferne die Bohrer") — the AI
+  doesn't see the cart for edits, only for don't-double-recommend.
+- AI submitting orders directly without cart confirmation — explicitly
+  reverted in v3.1 per user feedback.
+- Number badge on the cart icon (e.g. "3") — user wants only the dot.
+- TTS, multi-turn, alternatives, follow-up questions — all forbidden.
+
+### 16.8 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §16:
+- AssistantSheet uses addToCart, NOT POST /api/orders. The submit is
+  always via CartSheet → /api/orders. Don't reintroduce direct submit.
+- System prompt for /api/voice forbids "Bauleiter" mentions and empty
+  items lists. The A-material redirect is purely server-side (the
+  isABlockedTerm check before the LLM call).
+- Quantities the user speaks must be respected verbatim — the prompt
+  has a German number-word table and explicit instruction.
+- BottomNavBar cart badge is just a dot (rose-600, 8×8 px,
+  ring-2 ring-white). No counts.
+- Stepper in AssistantSheet uses stepFor(unit): Stk +10, m +5, other
+  +1. If a new unit shows up (e.g. "kg"), add it to stepFor.
+- Single submit path for foreman UI: CartSheet → POST /api/orders.
+- Same OpenAI APIs (callAI + transcribeAudio in lib/ai.ts). No new
+  env vars.
+```
+
+---
+
+## 17. Demo-day artifact debt + one tactical code knob (judge critique v3)
 
 > Third judge-pass after §15 polish shipped. **Build is strong.** The
 > remaining risk is artifact debt (no Lovable URL, no slide deck, no
-> screencast) and one structural concern (three voice surfaces). §16
+> screencast) and one structural concern (three voice surfaces). §17
 > tracks the closing list; most items are user tasks.
 
-### 16.1 What got better (vs critique v2)
+### 17.1 What got better (vs critique v2)
 
 - Voice ordering grew from a Web Speech mic in the search bar to a
   full Whisper-backed action-oriented assistant (§13 → §15) that
@@ -1945,7 +2085,7 @@ For a fresh chat continuing §15:
 - `pitch.md` now exists with persona, ROI math, slide outline,
   demo script, and the scale-honesty markdown ready to paste.
 
-### 16.2 What still hurts (judge POV)
+### 17.2 What still hurts (judge POV)
 
 1. **Three voice entry points coexist.** `VoiceSearch` in the
    discover search bar + `AssistantSheet` center-mic + the same
@@ -1966,32 +2106,32 @@ For a fresh chat continuing §15:
    pgvector / per-trade / curation copy — but no slide file means
    the killer "what about 50k SKUs?" question is unprepped.
 
-### 16.3 Action items
+### 17.3 Action items
 
 #### Tier 1 — must do to move the needle
 
-- [ ] **16.A — Lovable foreman-home mock.** *(User task, 60–90 min.)*
+- [ ] **17.A — Lovable foreman-home mock.** *(User task, 60–90 min.)*
   Three static screens (home / cart / orders) with screenshots of the
   real Next.js foreman home dropped in. Paste URL into `pitch.md` §6
   and `plan.md` §10.A2 when done.
-- [ ] **16.B — Real 5-slide deck file.** *(User task, 90 min.)*
+- [ ] **17.B — Real 5-slide deck file.** *(User task, 90 min.)*
   Built from `pitch.md` §5 outline + §11 scale-slide markdown. Hook
   image on slide 1 = crumpled paper delivery notes.
-- [ ] **16.C — Stopwatch screencast against a populated DB.** *(User
+- [ ] **17.C — Stopwatch screencast against a populated DB.** *(User
   task, 30 min including a coordinated `npm run seed` first.)* Target
   <30 s reorder. Save as `demo/reorder-stopwatch.mp4`.
 
 #### Tier 2 — high ROI if time
 
-- [ ] **16.D — Team-chat ping: apply migrations 0003 + 0004.** *(User
+- [ ] **17.D — Team-chat ping: apply migrations 0003 + 0004.** *(User
   task, 2 min.)* Use the `pitch.md` §7 template, adapted: "0004 (per-
   line decisions) needs db push too, alongside 0003 (per-project
   price override)."
-- [ ] **16.E — Pick the demo voice surface + rehearse.** *(User
+- [ ] **17.E — Pick the demo voice surface + rehearse.** *(User
   task.)* Recommendation: lead with `AssistantSheet` (more impressive
   — auto-submits a full order). Mention `VoiceSearch` only if asked.
   Rehearse twice with a stopwatch.
-- [x] **16.F — Throttle dashboard polling 1 s → 3 s for the demo.**
+- [x] **17.F — Throttle dashboard polling 1 s → 3 s for the demo.**
   Edited `app/procurement/dashboard/page.tsx`'s `RefreshPoller
   intervalMs={1000}` to `{3000}`. Same live-feel UX, lower rate-limit
   / WiFi-burst risk during the demo. Reversible in one keystroke if
@@ -2004,15 +2144,15 @@ For a fresh chat continuing §15:
 - pgvector / scale code.
 - Surfacing per-project price overrides on the foreman side.
 
-### 16.4 Continuity for a fresh chat
+### 17.4 Continuity for a fresh chat
 
 ```
-For a fresh chat continuing §16:
-- Read §10 → §11 → §16 in that order.
-- 16.A, 16.B, 16.C, 16.D, 16.E are USER tasks (Lovable, slide deck,
+For a fresh chat continuing §17:
+- Read §10 → §11 → §16 → §17 in that order.
+- 17.A, 17.B, 17.C, 17.D, 17.E are USER tasks (Lovable, slide deck,
   screencast, team ping, demo rehearsal). Don't try to do them; just
   verify they're handed off in pitch.md.
-- 16.F shipped — dashboard polls at 3 s now, not 1 s. The queue +
+- 17.F shipped — dashboard polls at 3 s now, not 1 s. The queue +
   /api/orders/list still poll at their respective intervals (3 s);
   only the dashboard changed.
 - The Slice A 1 s polling pattern (§14) on /foreman/orders and
