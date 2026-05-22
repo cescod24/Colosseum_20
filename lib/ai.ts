@@ -15,7 +15,7 @@
 import "server-only";
 import OpenAI from "openai";
 
-export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
+export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.5";
 export const AI_TIMEOUT_MS = 20_000;
 
 // Audio transcription (Whisper) gets its own timeout + model env var. Audio
@@ -38,7 +38,7 @@ type CallOptions<T> = {
   imageMimeType?: string;
   /**
    * Per-call model override. Falls back to OPENAI_MODEL env var (default
-   * "gpt-4o"). Lets a caller (e.g. the voice assistant) run on a different
+   * "gpt-5.5"). Lets a caller (e.g. the voice assistant) run on a different
    * model without affecting ingest/discover.
    */
   model?: string;

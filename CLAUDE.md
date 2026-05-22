@@ -21,7 +21,7 @@ MVP — favour a working end-to-end slice over breadth. Full context: `plan.md`.
   phase needs one — not pre-installed in Step 0.
 - **Database / Auth / Realtime:** **Supabase Cloud** (no local Docker). Schema
   lives in `supabase/migrations/*.sql` as versioned SQL.
-- **AI:** `openai` SDK, model `gpt-4o` (override via `OPENAI_MODEL`).
+- **AI:** `openai` SDK, model `gpt-5.5` (override via `OPENAI_MODEL`).
   Used for contract-PDF extraction and task-based product search. All calls
   go through `lib/ai.ts` (timeout + canned fallback).
 - **Hosting:** Vercel.

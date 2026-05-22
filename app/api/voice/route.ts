@@ -597,7 +597,7 @@ export async function POST(req: Request) {
 
   // Voice gets its own model env var so the assistant can run on a
   // different model from ingest/discover if needed. Defaults to
-  // OPENAI_MODEL (gpt-4o) when unset, so no behaviour change without
+  // OPENAI_MODEL (gpt-5.5) when unset, so no behaviour change without
   // an explicit OPENAI_VOICE_MODEL opt-in.
   const voiceModel = process.env.OPENAI_VOICE_MODEL || undefined;
 
