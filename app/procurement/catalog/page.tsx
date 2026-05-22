@@ -117,19 +117,19 @@ export default async function CatalogPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
           Procurement
         </p>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
               {copyEn["catalog.title"]}
             </h1>
             <p className="text-sm text-zinc-500">
               {copyEn["catalog.subtitle"]}
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 shadow-sm">
             {products.length} active
           </span>
         </div>

@@ -139,25 +139,27 @@ export default async function QueuePage() {
       <RefreshPoller intervalMs={1000} />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
             Procurement
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
             {copyEn["queue.title"]}
           </h1>
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        <div className="flex items-center gap-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-3 py-1.5 font-semibold text-amber-900 shadow-sm">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
+            </span>
             {orders.length} pending
           </span>
           {orders.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 font-semibold text-zinc-800 shadow-sm">
               {fmtCurrency(
                 Math.round(pendingValue * 100) / 100,
                 pendingCurrency,
-              )}{" "}
-              value
+              )}
             </span>
           )}
         </div>

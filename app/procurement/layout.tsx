@@ -42,10 +42,10 @@ export default async function ProcurementLayout({
               <HardHat className="h-5 w-5" />
             </span>
             <span className="hidden flex-col leading-tight sm:flex">
-              <span className="text-sm font-semibold text-zinc-900">
+              <span className="font-display text-base font-bold tracking-tight text-zinc-900">
                 Site Order
               </span>
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700/80">
                 Procurement
               </span>
             </span>

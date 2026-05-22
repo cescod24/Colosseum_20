@@ -73,7 +73,7 @@ export default async function Page() {
             <HardHat className="h-3.5 w-3.5" />
             Site Order
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="font-display text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
             Wer bist du gerade?
           </h1>
           <p className="mx-auto max-w-xs text-sm text-zinc-600">

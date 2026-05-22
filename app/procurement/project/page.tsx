@@ -109,10 +109,10 @@ export default async function ProjectRulesPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
           Procurement
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
           {copyEn["project.title"]}
         </h1>
         <p className="text-sm text-zinc-500">

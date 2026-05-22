@@ -83,18 +83,24 @@ function Stat({
 }) {
   const valueClass =
     accent === "amber"
-      ? "text-amber-700"
+      ? "text-amber-300"
       : accent === "emerald"
-        ? "text-emerald-700"
-        : "text-zinc-900";
+        ? "text-emerald-300"
+        : "text-white";
+  const ringClass =
+    accent === "amber"
+      ? "ring-amber-300/30 bg-amber-500/10"
+      : "ring-white/15 bg-white/5";
   return (
-    <div className="min-w-0 rounded-xl bg-white px-3 py-2 text-center shadow-sm ring-1 ring-zinc-100">
+    <div
+      className={`min-w-0 rounded-2xl px-3 py-2 text-center backdrop-blur-sm ring-1 ${ringClass}`}
+    >
       <p
-        className={`text-xl font-semibold leading-tight sm:text-2xl ${valueClass}`}
+        className={`font-display text-2xl font-bold leading-tight sm:text-3xl ${valueClass}`}
       >
         {value}
       </p>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
         {label}
       </p>
     </div>
@@ -211,21 +217,26 @@ export default async function DashboardPage() {
       <RefreshPoller intervalMs={3000} />
 
       {/* Hero — big number first, eyebrow, then meta line */}
-      <header className="space-y-3">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 px-6 py-7 text-white shadow-lg sm:px-8 sm:py-9">
+        {/* Subtle radial highlight in the corner so the hero doesn't read flat */}
+        <div
+          aria-hidden
+          className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-amber-500/20 blur-3xl"
+        />
+        <div className="relative space-y-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300/90">
             Procurement · Spend dashboard
           </p>
-          <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
+              <p className="font-display text-5xl font-semibold tracking-tight text-white sm:text-6xl">
                 {fmtCurrency(round(total), currency)}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-zinc-300">
                 {project?.name ?? "—"} · {copyEn["dashboard.subtitle"]}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <Stat label="Orders" value={ordersThisProject} />
               <Stat label="Decided" value={decidedCount} />
               <Stat

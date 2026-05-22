@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist } from "next/font/google";
+import { Geist, Plus_Jakarta_Sans } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+// Display font for hero numbers + section headings. Pairs with Geist's
+// neutral body. Reads well on both mobile and desktop.
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700", "800"],
+});
 
 export const metadata: Metadata = {
   title: "Site Order",
@@ -24,7 +31,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de" className={cn("h-full antialiased", "font-sans", geist.variable)}>
+    <html
+      lang="de"
+      className={cn(
+        "h-full antialiased",
+        "font-sans",
+        geist.variable,
+        jakarta.variable,
+      )}
+    >
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
         {children}
       </body>
