@@ -79,7 +79,7 @@ export function BottomNavBar({
           type="button"
           onClick={onAssistantTap}
           aria-label={copyDe["nav.ai"]}
-          className="absolute left-1/2 top-0 inline-flex h-14 w-14 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 text-white shadow-lg ring-4 ring-white transition-transform hover:scale-105 active:scale-95"
+          className="absolute left-1/2 top-0 inline-flex h-14 w-14 -translate-x-1/2 -translate-y-1/3 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-hover text-brand shadow-lg ring-4 ring-white transition-transform hover:scale-105 active:scale-95"
         >
           <Sparkles className="h-6 w-6" />
         </button>
@@ -104,7 +104,7 @@ function NavLink({
       href={href}
       className={
         "flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium leading-none transition-colors " +
-        (active ? "text-zinc-900" : "text-zinc-500 hover:text-zinc-900")
+        (active ? "text-brand" : "text-zinc-500 hover:text-zinc-900")
       }
       aria-current={active ? "page" : undefined}
     >

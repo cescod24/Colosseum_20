@@ -24,7 +24,7 @@ export function ChipRow({ unit, selected, onSelect }: Props) {
             className={
               "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
               (active
-                ? "bg-zinc-900 text-white"
+                ? "bg-brand text-white"
                 : "border border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400")
             }
           >

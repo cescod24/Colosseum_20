@@ -22,7 +22,7 @@ const PERSONA: Record<DemoRole, Persona> = {
     role: "Polier · Hochbau",
     context: "Baustelle Zürich-West · PPE & Verbrauchsmaterial",
     Icon: HardHat,
-    accent: "from-amber-500 to-orange-500",
+    accent: "from-brand to-brand-700",
   },
   "foreman-b": {
     name: "Marco Bianchi",
@@ -66,10 +66,10 @@ export default async function Page() {
   const current = await getDemoRole();
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-gradient-to-b from-zinc-50 via-zinc-50 to-amber-50/30 px-4 py-10 sm:py-16">
+    <main className="flex flex-1 items-center justify-center bg-gradient-to-b from-canvas via-canvas to-brand-50 px-4 py-10 sm:py-16">
       <div className="w-full max-w-md space-y-6">
         <header className="space-y-3 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand">
             <HardHat className="h-3.5 w-3.5" />
             Site Order
           </div>

@@ -109,7 +109,7 @@ export default async function ProjectRulesPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
           Procurement
         </p>
         <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">

@@ -118,7 +118,7 @@ export function CartSheet({
             type="button"
             onClick={onSubmit}
             disabled={empty || sending}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-5 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-5 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
           >
             {sending ? (
               <Loader2 className="h-5 w-5 animate-spin" />

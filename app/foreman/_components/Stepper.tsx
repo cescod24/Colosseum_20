@@ -41,7 +41,7 @@ export function Stepper({ value, onChange, min = 0, step = 1 }: Props) {
         type="button"
         aria-label={copyDe["qty.plus"]}
         onClick={() => onChange(value + step)}
-        className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-white transition-colors hover:bg-zinc-700 active:bg-zinc-800"
+        className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white transition-colors hover:bg-brand-hover active:bg-brand-hover"
       >
         <Plus className="h-5 w-5" />
       </button>

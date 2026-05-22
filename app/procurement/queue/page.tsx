@@ -139,7 +139,7 @@ export default async function QueuePage() {
       <RefreshPoller intervalMs={1000} />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
             Procurement
           </p>
           <h1 className="font-display text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">

@@ -50,7 +50,10 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  /* comstruct canvas: a soft cool gray, not pure white. Cards/surfaces stay
+     white (--card below), so the app reads as white panels on a light-gray
+     canvas — comstruct's look. */
+  --background: #f1f2f1;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -143,12 +146,20 @@
   }
 }
 
-/* Brand tokens — used sparingly on the role-picker, procurement chrome,
-   and the AI FAB. Construction-site amber works against the slate UI
-   without taking over. */
-:root {
-  --brand-500: oklch(0.78 0.16 70);
-  --brand-600: oklch(0.72 0.18 65);
-  --brand-50: oklch(0.97 0.04 80);
-  --brand-100: oklch(0.94 0.07 80);
+/* comstruct brand palette (sampled from comstruct.com):
+   teal/petrol primary, gold accent (the logo triangle), cool light-gray
+   canvas, white surfaces. Teal carries brand chrome + primary CTAs; gold is
+   the sparing accent (logo mark, AI assistant). Semantic colours
+   (amber=pending/warning, red=rejected, emerald=success) are deliberately
+   left alone — they're status, not brand. Exposed as Tailwind utilities:
+   bg-brand / text-brand / border-brand / bg-brand-50 / bg-gold / bg-canvas … */
+@theme {
+  --color-brand: #33687b;
+  --color-brand-hover: #2a5666;
+  --color-brand-700: #284f5d;
+  --color-brand-100: #d3e3e6;
+  --color-brand-50: #eef4f5;
+  --color-gold: #ebb94c;
+  --color-gold-hover: #d9a838;
+  --color-canvas: #f1f2f1;
 }

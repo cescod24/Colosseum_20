@@ -117,7 +117,7 @@ export default async function CatalogPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
           Procurement
         </p>
         <div className="flex flex-wrap items-end justify-between gap-3">

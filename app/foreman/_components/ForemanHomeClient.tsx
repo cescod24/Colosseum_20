@@ -450,7 +450,7 @@ export function ForemanHomeClient({
                     <button
                       type="button"
                       onClick={() => addToCart(row.product.id, 1)}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-white"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white"
                       aria-label={formatCopy(copyDe["kits.added"], { name: row.product.name })}
                     >
                       <ChevronRight className="h-5 w-5" />

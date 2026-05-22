@@ -28,7 +28,7 @@ export function KitTile({ name, itemCount, onTap }: Props) {
       onClick={onTap}
       className="flex h-full w-full flex-col items-start gap-2 rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-zinc-400 active:bg-zinc-50"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-white">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white">
         {icon}
       </span>
       <span className="text-sm font-semibold leading-tight text-zinc-900">

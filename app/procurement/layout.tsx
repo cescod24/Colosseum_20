@@ -32,18 +32,18 @@ export default async function ProcurementLayout({
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
+    <div className="flex min-h-screen flex-col bg-canvas">
       <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <div className="flex flex-none items-center gap-2 sm:gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
               <HardHat className="h-5 w-5" />
             </span>
             <span className="hidden flex-col leading-tight md:flex">
               <span className="font-display text-base font-bold tracking-tight text-zinc-900">
                 Site Order
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700/80">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand">
                 Procurement
               </span>
             </span>

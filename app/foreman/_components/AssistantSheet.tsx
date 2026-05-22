@@ -558,7 +558,7 @@ export function AssistantSheet({
                 onClick={sendText}
                 disabled={!text.trim()}
                 aria-label={copyDe["assistant.send"]}
-                className="rounded-xl bg-zinc-900 px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
+                className="rounded-xl bg-brand px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
               >
                 <Send className="h-4 w-4" />
               </button>
@@ -566,7 +566,7 @@ export function AssistantSheet({
                 type="button"
                 onClick={onMicTap}
                 aria-label={copyDe["assistant.start_listening"]}
-                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 text-white shadow-sm transition-transform active:scale-95"
+                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-hover text-brand shadow-sm transition-transform active:scale-95"
               >
                 <Mic className="h-5 w-5" />
               </button>
@@ -575,7 +575,7 @@ export function AssistantSheet({
               type="button"
               onClick={applyToCart}
               disabled={selectedCount === 0}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-5 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-5 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
             >
               <Check className="h-5 w-5" />
               <span>
@@ -629,7 +629,7 @@ export function AssistantSheet({
                 onClick={sendText}
                 disabled={!text.trim() || lockInput}
                 aria-label={copyDe["assistant.send"]}
-                className="rounded-xl bg-zinc-900 px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
+                className="rounded-xl bg-brand px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
               >
                 <Send className="h-4 w-4" />
               </button>
