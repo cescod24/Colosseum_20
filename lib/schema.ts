@@ -278,7 +278,10 @@ export const aiAssistantItemSchema = z.object({
 export const aiAssistantReplySchema = z.object({
   /** One short German line confirming what's being ordered. */
   reply: z.string().min(1).max(300),
-  items: z.array(aiAssistantItemSchema).max(8).default([]),
+  // 16 cap: broad "X bauen" tasks (chair, table, drywall, full PSA kit)
+  // legitimately need 6–10 items + a refinement turn where the polier adds
+  // more. 8 was forcing the model to drop preserved items during refinement.
+  items: z.array(aiAssistantItemSchema).max(16).default([]),
 });
 
 export const assistantItemSchema = z.object({
@@ -297,7 +300,7 @@ export const assistantItemSchema = z.object({
 export const assistantResponseSchema = z.object({
   transcript: z.string(),
   reply: z.string(),
-  items: z.array(assistantItemSchema).max(8),
+  items: z.array(assistantItemSchema).max(16),
   unmatched: z.array(voiceUnmatchedSchema).max(8),
   canned: z.boolean().optional(),
   /** A-material guard hit; client renders the Bauleiter redirect, no submit. */
