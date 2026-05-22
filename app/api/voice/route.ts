@@ -192,6 +192,43 @@ const SYNONYMS: Record<string, string[]> = {
   alcohol: ["alkohol", "reinigungsalkohol"],
 };
 
+// Reverse-index SYNONYMS once at module load: catalog-substring -> set of
+// foreign (IT / EN) words that map to it. Used to (a) decorate each catalog
+// row in the prompt with its IT/EN nicknames so the AI doesn't have to
+// translate "guanti" → "Handschuhe" mentally, and (b) detect cross-language
+// removal references in the server preservation pass below.
+const SYNONYM_REVERSE: Map<string, Set<string>> = (() => {
+  const out = new Map<string, Set<string>>();
+  for (const [foreign, deStems] of Object.entries(SYNONYMS)) {
+    for (const de of deStems) {
+      const set = out.get(de) ?? new Set<string>();
+      // Don't list the German stem as a "foreign" hint — it's already
+      // in the catalog name.
+      if (foreign !== de) set.add(foreign);
+      out.set(de, set);
+    }
+  }
+  return out;
+})();
+
+// Returns a short "(guanti, gloves)" hint string for a catalog row, by
+// scanning its German name/group for substrings that have IT/EN synonyms.
+// Empty string if no synonyms found.
+function synonymHintFor(row: CatalogRow): string {
+  const haystack = `${row.name} ${row.product_group ?? ""}`.toLowerCase();
+  const hits = new Set<string>();
+  for (const [deStem, foreignSet] of SYNONYM_REVERSE.entries()) {
+    if (haystack.includes(deStem)) {
+      for (const f of foreignSet) hits.add(f);
+    }
+  }
+  if (hits.size === 0) return "";
+  // Cap the hint list — some stems (e.g. handschuh) collect a lot of
+  // near-duplicates and we don't want to bloat the prompt.
+  const top = Array.from(hits).slice(0, 6);
+  return ` [${top.join(", ")}]`;
+}
+
 function expandTokens(transcript: string): Set<string> {
   const raw = transcript
     .toLowerCase()
@@ -248,7 +285,7 @@ function buildSystemPrompt(opts: {
       const lines = rows
         .map(
           (c) =>
-            `  - ${c.supplier_sku}\t${c.name} (${c.unit}${c.unit_price != null ? `, ${c.unit_price.toFixed(2)} CHF` : ""}${c.hazardous ? ", GEFAHRGUT" : ""})`,
+            `  - ${c.supplier_sku}\t${c.name}${synonymHintFor(c)} (${c.unit}${c.unit_price != null ? `, ${c.unit_price.toFixed(2)} CHF` : ""}${c.hazardous ? ", GEFAHRGUT" : ""})`,
         )
         .join("\n");
       return `### ${group}\n${lines}`;
@@ -344,6 +381,21 @@ function buildSystemPrompt(opts: {
     "",
     "SPRACHE: Der Polier kann auf Deutsch, Italienisch oder Englisch sprechen.",
     "Verstehe alle drei und antworte immer auf Deutsch.",
+    "",
+    "WORTSCHATZ-HINWEISE im Katalog: Jeder Artikel kann eckige Klammern",
+    "haben mit IT/EN-Synonymen, z.B.:",
+    "    C019  Arbeitshandschuhe Gr.9 [guanti, gloves, glove, ppe, psa] (Paar, ...)",
+    "Das bedeutet: wenn der Polier 'guanti' / 'gloves' / 'PSA' sagt, MEINT",
+    "er DIESEN sku (C019). Du musst NICHT auf den exakten deutschen Namen",
+    "warten. Beispiele die du gleich behandeln musst:",
+    "  • 'togli i guanti'         → bezieht sich auf C019 Arbeitshandschuhe",
+    "  • 'remove the gloves'      → bezieht sich auf C019 Arbeitshandschuhe",
+    "  • 'togli le viti'          → bezieht sich auf C003 Schraube TX25",
+    "  • 'half the screws'        → halbiert C003 Schraube TX25",
+    "  • 'ohne nastro'            → entfernt C027 Panzertape",
+    "Wenn mehrere Artikel zum Synonym passen (z.B. 'tape' → C027 Panzertape",
+    "UND C... Klebeband im Vorschlag), wähle den, der bereits im aktuellen",
+    "Vorschlag ist. Im Zweifel: nimm den, der GENAUER passt.",
     "",
     "═══════════════════════════════════════════════════════════════",
     "WARENKORB-AKTIONEN — sehr wichtig, NICHT vermischen:",
@@ -618,9 +670,12 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
     if (audio.size < MIN_BYTES) {
       return { transcript: "", projectId, cart, currentItems, tooShort: true };
     }
+    // No language hint — the polier can speak DE, IT, or EN, so let
+    // Whisper auto-detect. Forcing "de" produced garbled transcripts for
+    // Italian utterances ("togli i guanti" → unrecognisable) and broke
+    // both the AI's understanding and the server preservation pass.
     const transcript = await transcribeAudio({
       file: audio,
-      language: "de",
       fallback: CANNED_VOICE_TRANSCRIPT,
     });
     return { transcript, projectId, cart, currentItems };
@@ -741,9 +796,9 @@ export async function POST(req: Request) {
     const bySku = new Map(catalog.map((c) => [c.supplier_sku, c]));
     const tLower = transcript.toLowerCase();
     const removalVerbs = [
-      "entfern", "weg", "ohne", "lösche", "lösch", "raus", "kein",
-      "togli", "rimuov", "elimin", "senza",
-      "remove", "drop", "delete", "without", "no more",
+      "entfern", "weg", "ohne", "lösche", "lösch", "raus", "kein", "weniger",
+      "togli", "leva", "levare", "rimuov", "elimin", "senza", "niente",
+      "remove", "drop", "delete", "without", "no more", "skip",
     ];
     const hasRemovalVerb = removalVerbs.some((v) => tLower.includes(v));
     // Reverse-index SYNONYMS so we can ask "does this German product-name

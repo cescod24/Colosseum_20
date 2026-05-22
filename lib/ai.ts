@@ -108,7 +108,14 @@ export async function callAI<T>(opts: CallOptions<T>): Promise<T> {
 
 type TranscribeOptions = {
   file: File;
-  /** ISO language hint forwarded to Whisper; defaults to German. */
+  /**
+   * ISO language hint forwarded to Whisper. When omitted, Whisper
+   * auto-detects — required for the foreman assistant because the polier
+   * can speak DE, IT, or EN. A hard-locked "de" hint caused Italian
+   * speech to come back as garbled German pseudo-text ("togli i guanti"
+   * → "Toggle i Wandi"), which broke both the AI's understanding and the
+   * server-side preservation pass.
+   */
   language?: string;
   /** Returned verbatim on missing key / timeout / error / empty transcript. */
   fallback: string;
@@ -127,7 +134,7 @@ export async function transcribeAudio(opts: TranscribeOptions): Promise<string> 
     const resp = await client.audio.transcriptions.create({
       file: opts.file,
       model: OPENAI_TRANSCRIBE_MODEL,
-      language: opts.language ?? "de",
+      ...(opts.language ? { language: opts.language } : {}),
       response_format: "json",
     });
     const text = (resp as { text?: string }).text?.trim() ?? "";
