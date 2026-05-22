@@ -36,6 +36,12 @@ type CallOptions<T> = {
   imageBase64?: string;
   /** MIME type for the image; defaults to image/jpeg. */
   imageMimeType?: string;
+  /**
+   * Per-call model override. Falls back to OPENAI_MODEL env var or
+   * "gpt-4o-mini". Lets the voice assistant opt into a stronger model
+   * (gpt-4o) without affecting ingest/discover.
+   */
+  model?: string;
   /** Returned verbatim if no key / timeout / error / parse-fail. */
   fallback: T;
   /** Validate + parse the model's text output into T. Throw to trigger fallback. */
@@ -73,7 +79,7 @@ export async function callAI<T>(opts: CallOptions<T>): Promise<T> {
 
   try {
     const resp = await client.chat.completions.create({
-      model: OPENAI_MODEL,
+      model: opts.model ?? OPENAI_MODEL,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: opts.system },

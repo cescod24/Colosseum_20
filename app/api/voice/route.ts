@@ -300,6 +300,21 @@ function buildSystemPrompt(opts: {
     "- Wiederhole NIE dieselbe Empfehlung aus dem 'Aktueller Vorschlag'",
     "  unten unverändert, wenn der Polier neue Wünsche äußert.",
     "",
+    "BAU-AUFGABEN (sehr wichtig):",
+    "- Wenn der Polier sagt 'X bauen' / 'X montieren' / 'costruire X' /",
+    "  'montare X' / 'build X' / 'install X', dann ist es eine BREITE",
+    "  Aufgabe. Empfehle 5–7 items, nicht nur 2–3. Decke alle relevanten",
+    "  Kategorien ab: fasteners (Schrauben + Dübel), tools (Bohrer + Bit),",
+    "  sealants / adhesives wenn passend, ein cover/tape wenn relevant,",
+    "  PPE wenn der Polier offensichtlich noch keins hat.",
+    "- Möbel bauen (Stuhl, Tisch, Regal, Schrank, sedia, tavolo, mensola,",
+    "  chair, table, shelf): Schrauben TX25 (50–100 Stk), Dübel 6 mm",
+    "  oder 8 mm (50 Stk), Bohrer in passender Größe, Bit TX25,",
+    "  Schleifpapier wenn im Katalog, Schutzbrille, Arbeitshandschuhe.",
+    "  Mindestens 5 verschiedene SKUs.",
+    "- Trockenbau / cartongesso: Schrauben TX25 (200), Profile-Verbindung,",
+    "  Spachtel + Spachtelmasse, Klebeband, Schutzbrille, Cutter.",
+    "",
     "MENGEN-REGELN (sehr wichtig):",
     '- Wenn der Polier eine Zahl sagt ("500 Schrauben", "drei Tuben",',
     '  "vier Rollen Tape", "fünfhundert"), NIMM DIESE EXAKTE ZAHL.',
@@ -326,12 +341,23 @@ function buildSystemPrompt(opts: {
       '- Wenn der Polier eine Menge ändert ("mach 100 Schrauben, nicht 50",',
       '  "doppelt so viele Handschuhe", "nur 1 Bohrer"): aktualisiere',
       "  die qty des entsprechenden SKUs in items. Andere items unverändert lassen.",
+      "- PRONOMEN-REFERENZEN auflösen — sehr wichtig:",
+      '  * "Ich will 50 davon" / "50 von denen" / "fünfzig stück davon" /',
+      '    "fanne 50" / "make it 50": Wenn EIN item in der Liste klar das',
+      "    Subjekt ist (der zuletzt vom Polier erwähnte Artikel, oder das",
+      "    einzige skalierbare wie Schrauben/Dübel/Kabelbinder), setze",
+      "    seine qty auf die genannte Zahl. Wenn mehrere Items in Frage",
+      "    kommen, nimm das mit der größten qty (typischerweise das",
+      "    Hauptmaterial der Aufgabe).",
+      '  * "doppelt so viele" / "die Hälfte" / "doppia" / "metà" / "double" /',
+      '    "half": multipliziere/halbiere ALLE qtys, behalte die Items.',
+      '  * "mehr/weniger X": +/- 50% von qty für das SKU X.',
       '- Wenn der Polier ein item HINZUFÜGT ("auch noch ein Silikon",',
-      '  "und 5 Schraubendreher"): füge das neue SKU zu items hinzu. Alle',
-      "  bestehenden items bleiben.",
+      '  "und 5 Schraubendreher", "aggiungi"): füge das neue SKU zu items',
+      "  hinzu. Alle bestehenden items bleiben.",
       '- Wenn der Polier ein item ENTFERNEN möchte ("entferne den Bohrer",',
-      '  "ohne Tape", "den letzten brauche ich nicht"): lass das SKU aus',
-      "  der neuen items-Liste weg.",
+      '  "ohne Tape", "den letzten brauche ich nicht", "togli", "remove"):',
+      "  lass das SKU aus der neuen items-Liste weg.",
       "- Bei einer komplett neuen Anforderung (z.B. der Polier nennt eine",
       "  ganz neue Aufgabe wie 'Fenster abdichten'): generiere eine neue",
       "  Liste, ignoriere den aktuellen Vorschlag.",
@@ -346,7 +372,15 @@ function buildSystemPrompt(opts: {
       "BEISPIELE (Aufgabe → empfohlene Artikel):",
       '- "Fenster abdichten" → Silikon transparent, Reinigungsalkohol, Panzertape',
       '- "PSA neuer Mitarbeiter" → Handschuhe, Helm, Schutzbrille, Warnweste, Gehörschutz',
-      '- "Tür einbauen" / "porta da montare" → Schrauben TX25, Dübel 8mm, Silikon, Bohrer 8mm',
+      '- "Tür einbauen" / "porta da montare" → Schrauben TX25, Dübel 8mm, Silikon, Bohrer 8mm, Bit TX25',
+      '- "Stuhl bauen" / "sedia da costruire" / "build a chair" →',
+      "  100× Schraube TX25 (C003), 50× Dübel 6mm/8mm, 1× Bohrer passende",
+      "  Größe (z.B. C034 Bohrer 8mm), 1× Bit TX25 (C033), 1× Schutzbrille,",
+      "  2× Arbeitshandschuhe (mindestens 5 SKUs).",
+      '- "Tisch bauen" / "tavolo da costruire" / "build a table" →',
+      "  ähnlich Stuhl, mehr Schrauben (200), zusätzlich Schleifpapier wenn",
+      "  im Katalog, Wasserwaage (C046).",
+      '- "Regal/Schrank bauen" → Schrauben, Dübel, Bohrer, Bit, Wasserwaage, Bleistift.",',
       '- "Trockenbau 50 m²" → Schrauben TX25, Dübel, Spachtel, Spachtelmasse, Klebeband',
       '- "Werkzeug nachbestellen" → Bits TX20+TX25, Bohrer, Wasserwaage, Zollstock',
       '- "Kabel verlegen" → Kabelbinder, Isolierband, Installationsdraht',
@@ -561,9 +595,16 @@ export async function POST(req: Request) {
   });
   const userText = `Polier sagt: "${transcript}"\n\nReturn JSON only.`;
 
+  // Voice gets its own model env var so the user can opt into gpt-4o
+  // (sharper, ~10× more expensive) for the assistant only, leaving
+  // ingest/discover on gpt-4o-mini. Defaults to OPENAI_MODEL (gpt-4o-mini)
+  // when unset, so no behaviour change without explicit opt-in.
+  const voiceModel = process.env.OPENAI_VOICE_MODEL || undefined;
+
   const ai = await callAI<AiAssistantReply>({
     system,
     userText,
+    model: voiceModel,
     fallback,
     parse: (text) => {
       const m = text.match(/\{[\s\S]*\}/);
