@@ -2160,3 +2160,72 @@ For a fresh chat continuing §17:
   because it's the heaviest single query.
 - Branch model: work on dev-b, fast-forward main at each commit.
 ```
+
+---
+
+## 18. comstruct re-skin + no-price foreman + catalog search + kits/qty/Safari
+
+> A batch of UX + branding work. All merged to `main`, gate green at every
+> step. Source of truth for the visual identity going forward.
+
+### 18.1 Status
+
+- [x] comstruct palette applied (teal `#33687B`, gold `#EBB94C`, canvas
+      `#F1F2F1`). Tokens in `app/globals.css` (`bg-brand` / `bg-gold` /
+      `bg-canvas` / `text-brand` …). Sampled from comstruct.com screenshots.
+- [x] Foreman sees **no price anywhere** (per-item, cart total, order
+      list/detail all removed). Server owns pricing + threshold.
+- [x] Procurement catalog has a **live search** (name/SKU/supplier/group).
+- [x] **4 varied kits** (PPE / Trockenbau / Elektro / Maler) + **tap-to-type
+      quantity** on the Stepper.
+- [x] Compact procurement top nav with a mobile dropdown.
+- [x] Three clean supplier catalog PDFs in `data/` + canned fallbacks.
+- [x] `allowedDevOrigins` widened to all private ranges (fixes "buttons dead
+      on Safari/iPhone" — an unlisted LAN subnet had blocked hydration).
+
+### 18.2 What changed (file refs)
+
+- **Palette:** `app/globals.css` `@theme` brand/gold/canvas tokens; body
+  `--background` → canvas gray (cards stay white via `--card`). Recoloured:
+  role-picker (`app/page.tsx`), procurement chrome
+  (`app/procurement/layout.tsx` + `ProcurementNav` + eyebrow labels on
+  queue/project/catalog), foreman CTAs (Stepper, KitTile, ChipRow, CartSheet,
+  home add-to-cart, AssistantSheet send/apply). AI FAB (`BottomNavBar`) +
+  assistant mic → **solid gold, dark glyph** (the gradient read as clashing).
+  Semantic amber/red/emerald deliberately untouched (status, not brand).
+- **No-price foreman:** dropped the client total useMemos + the
+  `total` prop on `CartSheet`; submit button uses `cart.submit` (no total);
+  `OrdersListClient` card + `/foreman/orders/[id]` header show no money;
+  `AssistantSheet` apply button drops the total. CLAUDE.md rule updated
+  ("Foreman never sees prices — at all").
+- **Catalog search:** `app/procurement/catalog/CatalogTable.tsx` (client
+  island) wraps the editable rows with a search box; the `updateProduct`
+  server action is passed in as a prop. `copy.en` gains `catalog.search*`.
+- **Kits + qty:** `scripts/seed.ts` four kits; `Stepper.tsx` numeric input
+  (`inputMode="numeric"`, `type="text"`); `KitTile` Plug/Paintbrush icons.
+  Requires `npm run seed` to surface the new kits.
+- **Nav:** `app/procurement/_components/ProcurementNav.tsx` (desktop inline +
+  mobile dropdown, longest-prefix active match).
+- **Dev origins:** `next.config.ts` `allowedDevOrigins`.
+
+### 18.3 To re-skin again (one knob)
+
+Change the three hex values at the top of `app/globals.css`
+(`--color-brand`, `--color-gold`, `--color-canvas`) — everything else reads
+the Tailwind utilities, so the whole app re-themes from those.
+
+### 18.4 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §18:
+- The visual identity is the comstruct palette. Don't reintroduce amber as a
+  BRAND colour (it's reserved for pending/warning status only).
+- The foreman price ban is a hard rule (CLAUDE.md). If you add a foreman
+  screen, never render a price or total there.
+- Kits live only in the DB — `npm run seed` (wipes the shared DB) is needed
+  to see kit changes. Coordinate in team chat.
+- gpt-5.5 is the default model (verified on our key, §"chore(ai)").
+- Still open from earlier: Vercel deploy (user asked how — guide in chat,
+  not done), the §9.3.5 review→active ingest gap, the user demo artifacts
+  (§17.A–E).
+```

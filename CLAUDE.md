@@ -61,12 +61,15 @@ MVP — favour a working end-to-end slice over breadth. Full context: `plan.md`.
   ingestion.
 - Plain language in all user-facing copy ("Kleinmaterial für die Baustelle"),
   never the jargon "Klasse C"/"C-Material". Foreman UI is for non-digital
-  natives: big tap targets, +/- steppers, no modal dialogs, no numeric
-  keypad. UI language is **German for foreman screens, English for
+  natives: big tap targets, +/- steppers (the quantity is also tap-to-type
+  with a numeric keypad — added on request), no modal dialogs. UI language
+  is **German for foreman screens, English for
   procurement / admin** — strings live in `lib/constants/copy.de.ts` and
   `lib/constants/copy.en.ts`.
-- **Foreman never sees per-item unit prices.** Only the cart total. Procurement
-  sees full prices everywhere.
+- **Foreman never sees prices — at all.** Not per-item, not the cart total,
+  not on the order list/detail. The server recomputes the total and applies
+  the spend threshold on submit, so nothing functional needs a client price.
+  Procurement sees full prices everywhere.
 
 ## Working style
 

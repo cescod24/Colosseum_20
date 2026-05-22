@@ -67,9 +67,11 @@ sentence so the pitcher can speak to it without flipping files.
 - **Mobile-first, works on a real phone** — HTTPS dev server
   (`npm run dev:https`), tested over LAN with mic + camera
   permissions, safe-area-inset-aware bottom nav.
-- **Modern UI** — Plus Jakarta Sans display font, dark gradient
-  hero card, amber accents, animated pending-chip ping dot,
-  persona-named role picker on `/`.
+- **Modern UI, comstruct-branded** — Plus Jakarta Sans display font,
+  the comstruct palette (teal `#33687B` primary, gold `#EBB94C`
+  accent, cool-gray canvas), animated pending-chip ping dot,
+  persona-named role picker on `/`. Reinforces "the C-material front
+  door for comstruct" — the app looks like part of their product.
 
 ---
 
@@ -171,24 +173,27 @@ judge.
    purpose — the multi-lingual flex.) Within ~2 s: transcript
    appears, one-line German reply, **four checkable items with
    unit-aware steppers** (screws step by 10, tape by 1). Tap
-   **"In den Warenkorb übernehmen · X CHF"**. Sheet closes; the
-   cart icon in the bottom nav now shows a red dot.
+   **"In den Warenkorb übernehmen"**. Sheet closes; the cart icon
+   in the bottom nav now shows a red dot.
    *"Speak the job. The AI picks the parts. One tap."*
+   **(Note: the foreman sees NO price anywhere — that's the control
+   story. Procurement owns cost; Stefan just orders.)**
 
 3. **00:45 — Send the order.** Tap the cart icon → CartSheet
-   drawer slides up. Total visible. Tap **"Bestellung senden ·
-   ~40 CHF"**. Under the auto-approve threshold → land on
-   `/foreman/orders`. **Live pill flips Approved → Ordered →
-   Delivered within ~8 s** (1 s polling). The demo terminal shows
-   `[mock-comstruct] handoff …`.
-   *"Stefan never waited for procurement. Anna sees it on her
-   dashboard."*
+   drawer slides up (quantities only, no prices). Tap **"Bestellung
+   senden"**. The order is ~40 CHF server-side — under the
+   auto-approve threshold → land on `/foreman/orders`. **Live pill
+   flips Approved → Ordered → Delivered within ~8 s** (1 s polling).
+   The demo terminal shows `[mock-comstruct] handoff …`.
+   *"Stefan never waited for procurement, and never saw a franc.
+   Anna sees the spend on her dashboard."*
 
 4. **01:05 — Second order (intentionally over threshold).** Tap
    Discover in the bottom nav. Search *"Fenster abdichten"* (or use
    the Web Speech mic in the search bar — second voice surface).
    Three cards with German "why this fits" reasons. Bump qty with
-   a chip preset. Submit. **~310 CHF → Pending.**
+   a chip preset. Submit. The order is **~310 CHF server-side → over
+   the threshold → Pending**; Stefan just sees "Wartet auf Freigabe".
 
 5. **01:30 — Wow #2: Per-line decline with a suggested
    replacement.** Switch to Anna's window. Within 1 s the new
