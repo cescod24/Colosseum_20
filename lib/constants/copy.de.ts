@@ -137,6 +137,8 @@ export const copyDe: Copy = {
     "Mikrofon-Zugriff verweigert — in den Browser-Einstellungen erlauben oder einfach tippen.",
   "assistant.refine_hint":
     "Anpassen — sag noch was, ich merke mir den Vorschlag",
+  "assistant.refining_badge":
+    "Passe den aktuellen Vorschlag an ({n} Artikel) — keine neue Liste",
   "assistant.cart_removals_label": "Aus dem Warenkorb entfernen",
   "assistant.cart_removals_hint":
     "Wird beim Tippen auf „In den Warenkorb übernehmen\" mit erledigt.",

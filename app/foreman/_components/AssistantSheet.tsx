@@ -66,7 +66,7 @@ type Status =
   | { kind: "idle" }
   | { kind: "denied" }
   | { kind: "recording"; startedAt: number }
-  | { kind: "processing" }
+  | { kind: "processing"; refineCount: number }
   | {
       kind: "result";
       transcript: string;
@@ -87,66 +87,6 @@ function pickMimeType(): string | undefined {
     if (MediaRecorder.isTypeSupported(m)) return m;
   }
   return undefined;
-}
-
-// German/Italian/English "remove" verbs the user might say to ask us to drop
-// an item from the proposal. If the transcript contains one of these
-// _near_ a token from the product name / sku, we treat the item as
-// explicitly removed; otherwise we preserve it.
-const REMOVAL_VERBS = [
-  "entfern",
-  "weg",
-  "ohne",
-  "lösche",
-  "lösch",
-  "raus",
-  "kein",
-  "weniger",
-  "togli",
-  "rimuov",
-  "elimin",
-  "senza",
-  "remove",
-  "drop",
-  "delete",
-  "without",
-  "no more",
-];
-
-function transcriptAsksToRemove(
-  transcript: string | undefined,
-  item: AssistantItem,
-): boolean {
-  if (!transcript) return false;
-  const t = transcript.toLowerCase();
-  const hasRemovalVerb = REMOVAL_VERBS.some((v) => t.includes(v));
-  if (!hasRemovalVerb) return false;
-  // Tokenise the product name and SKU, then check if any meaningful token
-  // appears near a removal verb. Cheap heuristic: just require any token
-  // ≥ 3 chars from name/sku to appear in the transcript.
-  const tokens = `${item.name} ${item.supplier_sku}`
-    .toLowerCase()
-    .split(/[^a-z0-9äöüß]+/u)
-    .filter((tk) => tk.length >= 3);
-  return tokens.some((tk) => t.includes(tk));
-}
-
-function mergePreservedItems(
-  body: AssistantResponse,
-  previous: AssistantItem[],
-  transcript: string,
-  isRefinement: boolean,
-): AssistantResponse {
-  if (!isRefinement || previous.length === 0) return body;
-  const returnedIds = new Set(body.items.map((it) => it.product_id));
-  const restored: AssistantItem[] = [];
-  for (const prev of previous) {
-    if (returnedIds.has(prev.product_id)) continue;
-    if (transcriptAsksToRemove(transcript, prev)) continue;
-    restored.push(prev);
-  }
-  if (restored.length === 0) return body;
-  return { ...body, items: [...body.items, ...restored] };
 }
 
 function extForMime(m: string | undefined): string {
@@ -188,7 +128,6 @@ export function AssistantSheet({
     if (!open) {
       stopStream();
       refineItemsRef.current = null;
-      lastResultItemsRef.current = [];
       // setState-in-effect is intentional — we're resetting the sheet's
       // transient state when the sheet closes. Same pattern Dev B uses for
       // the per-line decisions panel.
@@ -210,7 +149,6 @@ export function AssistantSheet({
   const handleResponse = useCallback((body: AssistantResponse) => {
     if (body.redirect) {
       refineItemsRef.current = null;
-      lastResultItemsRef.current = [];
       setStatus({
         kind: "blocked",
         transcript: body.transcript,
@@ -236,9 +174,6 @@ export function AssistantSheet({
       supplier_sku: i.supplier_sku,
       qty: i.qty,
     }));
-    // Also keep the full AssistantItems so a refinement turn's client-side
-    // merge can restore the price + name + product_id without re-querying.
-    lastResultItemsRef.current = body.items;
     setStatus({
       kind: "result",
       transcript: body.transcript,
@@ -250,18 +185,12 @@ export function AssistantSheet({
     });
   }, []);
 
-  // Reference to the previous result panel's items, so a refinement turn
-  // can client-side merge: if the AI dropped items the foreman did NOT ask
-  // to remove, splice them back. Built fresh on each result; the keys are
-  // the displayed AssistantItems (with product_id + name + price).
-  const lastResultItemsRef = useRef<AssistantItem[]>([]);
-
   const sendRequest = useCallback(
     async (init: { audioBlob?: Blob; userText?: string }, mimeType?: string) => {
-      setStatus({ kind: "processing" });
       const refineItems = refineItemsRef.current;
-      const previousItems = lastResultItemsRef.current;
-      const transcript = init.userText ?? ""; // server-transcribed audio uses server-side merge below
+      const refineCount =
+        refineItems && refineItems.length > 0 ? refineItems.length : 0;
+      setStatus({ kind: "processing", refineCount });
       try {
         let res: Response;
         if (init.audioBlob) {
@@ -296,20 +225,12 @@ export function AssistantSheet({
           setStatus({ kind: "error", message: copyDe["assistant.error"] });
           return;
         }
-        // Refinement-turn safety net: if we were refining and the AI returned
-        // FEWER items than we had, restore any preserved items the polier
-        // didn't explicitly remove (by SKU mention in the transcript).
-        const merged = mergePreservedItems(
-          parsed.data,
-          previousItems,
-          // For audio, server transcribes and echoes back in `transcript`;
-          // for text path we already have init.userText. Use whichever is
-          // available — both work for the "did the polier mention SKU X?"
-          // check.
-          parsed.data.transcript || transcript,
-          refineItems !== null && refineItems.length > 0,
-        );
-        handleResponse(merged);
+        // Server is authoritative for refinement merging — it runs the
+        // reverse-synonym preservation pass in app/api/voice/route.ts. We
+        // used to also merge here, but the client check only saw German
+        // tokens, so "togli i guanti" wouldn't match "Arbeitshandschuhe"
+        // and the client restored items the server correctly removed.
+        handleResponse(parsed.data);
       } catch (err) {
         console.warn("[assistant] request failed", err);
         setStatus({ kind: "error", message: copyDe["assistant.error"] });
@@ -495,11 +416,24 @@ export function AssistantSheet({
           )}
 
           {(status.kind === "recording" || status.kind === "processing") && (
-            <div className="flex items-center gap-2 text-sm text-zinc-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {status.kind === "recording"
-                ? copyDe["voice.recording"]
-                : copyDe["assistant.processing"]}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-zinc-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {status.kind === "recording"
+                  ? copyDe["voice.recording"]
+                  : copyDe["assistant.processing"]}
+              </div>
+              {status.kind === "processing" && status.refineCount > 0 && (
+                <div className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>
+                    {copyDe["assistant.refining_badge"].replace(
+                      "{n}",
+                      String(status.refineCount),
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -611,7 +545,6 @@ export function AssistantSheet({
               type="button"
               onClick={() => {
                 refineItemsRef.current = null;
-      lastResultItemsRef.current = [];
                 setStatus({ kind: "idle" });
                 setSelected({});
               }}
