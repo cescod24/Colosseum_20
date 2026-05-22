@@ -1923,3 +1923,100 @@ For a fresh chat continuing §15:
 - Dev B's 1 s polling (§14) keeps the live flip snappy after the
   assistant submits.
 ```
+
+---
+
+## 16. Demo-day artifact debt + one tactical code knob (judge critique v3)
+
+> Third judge-pass after §15 polish shipped. **Build is strong.** The
+> remaining risk is artifact debt (no Lovable URL, no slide deck, no
+> screencast) and one structural concern (three voice surfaces). §16
+> tracks the closing list; most items are user tasks.
+
+### 16.1 What got better (vs critique v2)
+
+- Voice ordering grew from a Web Speech mic in the search bar to a
+  full Whisper-backed action-oriented assistant (§13 → §15) that
+  auto-submits an order on one tap.
+- Procurement went from approve/reject-only to per-line decisions
+  with reasons + suggested alternatives (§14, migration 0004).
+- Dashboard gained a compliance alert (mocked, honestly framed),
+  a decision recap, and 1 s polling.
+- `pitch.md` now exists with persona, ROI math, slide outline,
+  demo script, and the scale-honesty markdown ready to paste.
+
+### 16.2 What still hurts (judge POV)
+
+1. **Three voice entry points coexist.** `VoiceSearch` in the
+   discover search bar + `AssistantSheet` center-mic + the same
+   sheet's text Send button. Risk: a judge asks "why two
+   microphones?" Pick one for the live demo; mention the other
+   only if asked.
+2. **No Lovable artifact.** `<LOVABLE_FOREMAN_HOME_URL>` is still
+   a placeholder in pitch.md §6 — the single biggest unforced
+   error left.
+3. **Demo execution risk is up.** 1 s polling × 3 open tabs at
+   venue WiFi quality is asking for trouble. Migration 0004 also
+   needs `db push` on the shared project before per-line decline
+   works.
+4. **Feature density beats pitch depth.** Five-minute pitch, ten
+   demoable features. Pick three (voice → instant order, per-line
+   decline, OCR) and mention-only the rest.
+5. **Scale slide is still markdown.** `pitch.md` §11 carries
+   pgvector / per-trade / curation copy — but no slide file means
+   the killer "what about 50k SKUs?" question is unprepped.
+
+### 16.3 Action items
+
+#### Tier 1 — must do to move the needle
+
+- [ ] **16.A — Lovable foreman-home mock.** *(User task, 60–90 min.)*
+  Three static screens (home / cart / orders) with screenshots of the
+  real Next.js foreman home dropped in. Paste URL into `pitch.md` §6
+  and `plan.md` §10.A2 when done.
+- [ ] **16.B — Real 5-slide deck file.** *(User task, 90 min.)*
+  Built from `pitch.md` §5 outline + §11 scale-slide markdown. Hook
+  image on slide 1 = crumpled paper delivery notes.
+- [ ] **16.C — Stopwatch screencast against a populated DB.** *(User
+  task, 30 min including a coordinated `npm run seed` first.)* Target
+  <30 s reorder. Save as `demo/reorder-stopwatch.mp4`.
+
+#### Tier 2 — high ROI if time
+
+- [ ] **16.D — Team-chat ping: apply migrations 0003 + 0004.** *(User
+  task, 2 min.)* Use the `pitch.md` §7 template, adapted: "0004 (per-
+  line decisions) needs db push too, alongside 0003 (per-project
+  price override)."
+- [ ] **16.E — Pick the demo voice surface + rehearse.** *(User
+  task.)* Recommendation: lead with `AssistantSheet` (more impressive
+  — auto-submits a full order). Mention `VoiceSearch` only if asked.
+  Rehearse twice with a stopwatch.
+- [x] **16.F — Throttle dashboard polling 1 s → 3 s for the demo.**
+  Edited `app/procurement/dashboard/page.tsx`'s `RefreshPoller
+  intervalMs={1000}` to `{3000}`. Same live-feel UX, lower rate-limit
+  / WiFi-burst risk during the demo. Reversible in one keystroke if
+  judges prefer the snappier 1 s look.
+
+#### Skip in the last hours
+
+- New feature work.
+- Real Häfele/Würth punchout wiring.
+- pgvector / scale code.
+- Surfacing per-project price overrides on the foreman side.
+
+### 16.4 Continuity for a fresh chat
+
+```
+For a fresh chat continuing §16:
+- Read §10 → §11 → §16 in that order.
+- 16.A, 16.B, 16.C, 16.D, 16.E are USER tasks (Lovable, slide deck,
+  screencast, team ping, demo rehearsal). Don't try to do them; just
+  verify they're handed off in pitch.md.
+- 16.F shipped — dashboard polls at 3 s now, not 1 s. The queue +
+  /api/orders/list still poll at their respective intervals (3 s);
+  only the dashboard changed.
+- The Slice A 1 s polling pattern (§14) on /foreman/orders and
+  /procurement/queue is untouched — only the dashboard was throttled
+  because it's the heaviest single query.
+- Branch model: work on dev-b, fast-forward main at each commit.
+```
