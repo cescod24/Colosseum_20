@@ -2182,6 +2182,12 @@ For a fresh chat continuing §17:
 - [x] Three clean supplier catalog PDFs in `data/` + canned fallbacks.
 - [x] `allowedDevOrigins` widened to all private ranges (fixes "buttons dead
       on Safari/iPhone" — an unlisted LAN subnet had blocked hydration).
+- [x] Wide procurement tables made mobile-friendly: the catalog editable row
+      stacks into a card on phones (inline 12-col grid on `sm+` via a
+      `sm:contents` meta wrapper); the ingest review + dashboard
+      "Decision recap" tables scroll horizontally inside their card. Ingest
+      rows no longer show a `hazardous` badge (data still carries it; the
+      people handling the goods know).
 
 ### 18.2 What changed (file refs)
 
