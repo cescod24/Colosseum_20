@@ -12,7 +12,8 @@
     "test": "tsx --test lib/rules.test.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:clean": "tsx --env-file=.env.local scripts/seed.ts --no-orders",
-    "seed:bulk": "tsx --env-file=.env.local scripts/seed-bulk.ts"
+    "seed:bulk": "tsx --env-file=.env.local scripts/seed-bulk.ts",
+    "wipe": "tsx --env-file=.env.local scripts/wipe.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
