@@ -511,6 +511,7 @@ export function ForemanHomeClient({
         onClose={() => setAssistantOpen(false)}
         projectId={projectId}
         cart={cart}
+        addToCart={addToCart}
       />
     </div>
   );

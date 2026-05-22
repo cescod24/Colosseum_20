@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Check,
   CheckCircle2,
@@ -14,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 
-import { copyDe, formatCopy } from "@/lib/constants/copy.de";
+import { copyDe } from "@/lib/constants/copy.de";
 import {
   assistantResponseSchema,
   type AssistantItem,
@@ -26,10 +25,10 @@ import { Stepper } from "./Stepper";
 // Action-oriented assistant sheet.
 //
 // Foremen don't chat. The user speaks/types once, the assistant returns a
-// concrete item recommendation, the user reviews (checkbox + Stepper), and
-// one tap submits the order via POST /api/orders. No chat history, no
-// follow-up questions, no alternatives. After submit, the sheet closes and
-// the foreman lands on /foreman/orders to watch the live status pill.
+// concrete item recommendation, the user reviews (checkbox + Stepper +
+// unit-aware step), and one tap MERGES the items into the cart. The final
+// "Bestellung senden" still lives in the CartSheet so the foreman has one
+// last total-visible confirmation before the order goes out.
 
 type CartLineLite = { product_id: string; qty: number };
 
@@ -38,10 +37,22 @@ type Props = {
   onClose: () => void;
   projectId?: string;
   /** Foreman's current cart — passed to the AI as context so it doesn't
-   *  re-recommend items already pending. The AI's items submit as a NEW
-   *  order; they do not merge into this cart. */
+   *  re-recommend items already pending. */
   cart: CartLineLite[];
+  /** Same mutator the rest of the foreman pages use (kit tiles, last order,
+   *  most-ordered). The assistant adds its picked items here; submit still
+   *  goes through the CartSheet. */
+  addToCart: (product_id: string, qty: number) => void;
 };
+
+// Step size based on the product's unit. Foremen order screws by tens, tape
+// by ones — +/-1 on a Stk line is too tedious to use.
+function stepFor(unit: string | null | undefined): number {
+  if (!unit) return 1;
+  if (unit === "Stk") return 10;
+  if (unit === "m") return 5;
+  return 1;
+}
 
 type SelectedMap = Record<string, { selected: boolean; qty: number }>;
 
@@ -59,8 +70,7 @@ type Status =
       canned?: boolean;
     }
   | { kind: "blocked"; transcript: string; message: string }
-  | { kind: "submitting" }
-  | { kind: "submitted"; orderTotal: number }
+  | { kind: "applied"; count: number }
   | { kind: "error"; message: string };
 
 function pickMimeType(): string | undefined {
@@ -79,8 +89,13 @@ function extForMime(m: string | undefined): string {
   return "webm";
 }
 
-export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
-  const router = useRouter();
+export function AssistantSheet({
+  open,
+  onClose,
+  projectId,
+  cart,
+  addToCart,
+}: Props) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<SelectedMap>({});
@@ -244,7 +259,7 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
       stopRecording();
       return;
     }
-    if (status.kind === "processing" || status.kind === "submitting") return;
+    if (status.kind === "processing" || status.kind === "applied") return;
     void startRecording();
   }
 
@@ -267,46 +282,32 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
         }).length
       : 0;
 
-  const submitOrder = useCallback(async () => {
+  // Merge picked items into the cart and close. The final "Bestellung senden"
+  // happens in the CartSheet (foreman opens it from the bottom nav). This
+  // gives the foreman one last review with the total visible — and means we
+  // can drop the duplicate POST-/api/orders path here.
+  const applyToCart = useCallback(() => {
     if (status.kind !== "result") return;
-    const lines = status.items
-      .filter((it) => {
-        const s = selected[it.product_id];
-        return s?.selected && s.qty > 0;
-      })
-      .map((it) => ({ product_id: it.product_id, qty: selected[it.product_id].qty }));
-    if (lines.length === 0) return;
-    setStatus({ kind: "submitting" });
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: lines }),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`${res.status} ${txt}`);
-      }
-      // We trust the server's authoritative total; client-side selectedTotal is
-      // close enough to display on the success screen.
-      setStatus({ kind: "submitted", orderTotal: selectedTotal });
-      // After a beat, close + take the foreman to the live orders page.
-      setTimeout(() => {
-        onClose();
-        router.push("/foreman/orders");
-      }, 1200);
-    } catch (err) {
-      console.warn("[assistant] order submit failed", err);
-      setStatus({ kind: "error", message: copyDe["cart.error"] });
+    const picked = status.items.filter((it) => {
+      const s = selected[it.product_id];
+      return s?.selected && s.qty > 0;
+    });
+    if (picked.length === 0) return;
+    for (const it of picked) {
+      const qty = selected[it.product_id]?.qty ?? it.qty;
+      addToCart(it.product_id, qty);
     }
-  }, [onClose, router, selected, selectedTotal, status]);
+    setStatus({ kind: "applied", count: picked.length });
+    // brief confirmation then close so the foreman sees the cart-icon red dot
+    setTimeout(() => onClose(), 900);
+  }, [addToCart, onClose, selected, status]);
 
   if (!open) return null;
 
   const recording = status.kind === "recording";
   const processing = status.kind === "processing";
-  const submitting = status.kind === "submitting";
-  const lockInput = recording || processing || submitting;
+  const applied = status.kind === "applied";
+  const lockInput = recording || processing || applied;
 
   return (
     <div
@@ -385,14 +386,16 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
             </div>
           )}
 
-          {status.kind === "submitted" && (
+          {status.kind === "applied" && (
             <div className="flex flex-col items-center gap-2 rounded-2xl bg-emerald-50 px-3 py-6 text-emerald-900">
               <CheckCircle2 className="h-8 w-8" />
-              <p className="text-base font-semibold">{copyDe["cart.submitted"]}</p>
+              <p className="text-base font-semibold">
+                {status.count === 1
+                  ? "1 Artikel im Warenkorb"
+                  : `${status.count} Artikel im Warenkorb`}
+              </p>
               <p className="text-sm">
-                {formatCopy(copyDe["cart.submit_with_total"], {
-                  total: status.orderTotal.toFixed(2),
-                })}
+                Tipp unten auf den Warenkorb, um zu senden.
               </p>
             </div>
           )}
@@ -410,28 +413,20 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
           )}
         </div>
 
-        {/* Submit row when we have a result; otherwise input row */}
+        {/* Result → "In den Warenkorb" footer; other states → input or close */}
         {status.kind === "result" ? (
           <footer className="space-y-2 border-t border-zinc-100 bg-white px-4 py-3 pb-6">
             <button
               type="button"
-              onClick={submitOrder}
-              disabled={selectedCount === 0 || submitting}
+              onClick={applyToCart}
+              disabled={selectedCount === 0}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-5 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
             >
-              {submitting ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Check className="h-5 w-5" />
-              )}
+              <Check className="h-5 w-5" />
               <span>
-                {submitting
-                  ? copyDe["cart.sending"]
-                  : selectedCount === 0
-                    ? copyDe["assistant.no_match"]
-                    : formatCopy(copyDe["cart.submit_with_total"], {
-                        total: selectedTotal.toFixed(2),
-                      })}
+                {selectedCount === 0
+                  ? copyDe["assistant.no_match"]
+                  : `${copyDe["voice.apply"]} · ${selectedTotal.toFixed(2)} CHF`}
               </span>
             </button>
             <button
@@ -445,7 +440,7 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
               {copyDe["assistant.discard"]}
             </button>
           </footer>
-        ) : status.kind === "submitted" || status.kind === "blocked" ? (
+        ) : status.kind === "applied" || status.kind === "blocked" ? (
           <footer className="border-t border-zinc-100 bg-white px-4 py-3 pb-6">
             <button
               type="button"
@@ -489,19 +484,19 @@ export function AssistantSheet({ open, onClose, projectId, cart }: Props) {
                     ? copyDe["assistant.stop_listening"]
                     : copyDe["assistant.start_listening"]
                 }
-                disabled={processing || submitting}
+                disabled={processing || applied}
                 className={
                   "flex h-10 w-12 items-center justify-center rounded-xl shadow-sm transition-colors " +
                   (recording
                     ? "bg-rose-600 text-white animate-pulse"
-                    : processing || submitting
+                    : processing || applied
                       ? "bg-zinc-300 text-zinc-500"
                       : "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-700 text-white")
                 }
               >
                 {recording ? (
                   <Square className="h-4 w-4" fill="currentColor" />
-                ) : processing || submitting ? (
+                ) : processing || applied ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Mic className="h-5 w-5" />
@@ -589,6 +584,7 @@ function ResultPanel({
               </div>
               <Stepper
                 value={s.qty}
+                step={stepFor(it.unit)}
                 onChange={(n) =>
                   setSelected((prev) => ({
                     ...prev,

@@ -120,11 +120,9 @@ function NavButton({
         {icon}
         {!!badge && badge > 0 && (
           <span
-            aria-label={`${badge} im Warenkorb`}
-            className="absolute -right-2 -top-1 min-w-[16px] rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-4 text-white text-center"
-          >
-            {badge > 99 ? "99+" : badge}
-          </span>
+            aria-label="Warenkorb hat Artikel"
+            className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-rose-600 ring-2 ring-white"
+          />
         )}
       </span>
       <span>{label}</span>
