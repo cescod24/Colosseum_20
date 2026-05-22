@@ -32,10 +32,12 @@ merged to `main`; the original Phases 0–9 are done and the demo-polish work
   handoff on the approved subset → 8 s delivered flip), project rules
   (`/procurement/project`), **searchable** catalog admin
   (`/procurement/catalog` — live filter by name/SKU/supplier/group), CSV/PDF
-  ingest (`/procurement/ingest`), mock **Häfele punchout**
+  ingest (`/procurement/ingest` — no hazard badge on results; the data still
+  carries `hazardous`), mock **Häfele punchout**
   (`/procurement/ingest/punchout`), and the **spend dashboard + decision
   recap** (`/procurement/dashboard`, live-refreshing). Compact top nav that
-  collapses to a dropdown on mobile.
+  collapses to a dropdown on mobile; wide tables stack into cards / scroll
+  cleanly on phones.
 - **Branding:** UI uses the **comstruct palette** — teal `#33687B` primary
   (chrome + CTAs), gold `#EBB94C` accent (AI FAB), cool-gray `#F1F2F1`
   canvas with white surfaces. Tokens in `app/globals.css` (`bg-brand`,
