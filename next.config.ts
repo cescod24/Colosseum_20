@@ -8,16 +8,31 @@ const nextConfig: NextConfig = {
   // never wire up. The HTML-only role-picker still works; everything
   // client-side (BottomNavBar, AssistantSheet, kit tiles, cart) is dead.
   //
-  // Allow common private-network ranges so any phone on the same WiFi
-  // works without further config. Production builds ignore this flag.
+  // Allow ALL private-network ranges so any phone on the same WiFi works
+  // without knowing the exact subnet — the earlier list missed subnets like
+  // 192.168.2.* or 10.1.*, which left hydration dead (buttons unresponsive)
+  // on a phone hitting the laptop's LAN IP. Production builds ignore this.
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",
-    "192.168.1.191",
-    "192.168.1.*",
-    "192.168.0.*",
-    "10.0.0.*",
+    "192.168.*.*",
+    "10.*.*.*",
     "172.16.*.*",
+    "172.17.*.*",
+    "172.18.*.*",
+    "172.19.*.*",
+    "172.20.*.*",
+    "172.21.*.*",
+    "172.22.*.*",
+    "172.23.*.*",
+    "172.24.*.*",
+    "172.25.*.*",
+    "172.26.*.*",
+    "172.27.*.*",
+    "172.28.*.*",
+    "172.29.*.*",
+    "172.30.*.*",
+    "172.31.*.*",
   ],
 };
 

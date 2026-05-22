@@ -21,12 +21,22 @@ export function Stepper({ value, onChange, min = 0, step = 1 }: Props) {
       >
         <Minus className="h-5 w-5" />
       </button>
-      <span
-        aria-live="polite"
-        className="min-w-[2ch] text-center text-base font-semibold tabular-nums text-zinc-900"
-      >
-        {value}
-      </span>
+      {/* Tappable + typeable. inputMode="numeric" pops the numeric keypad on
+          mobile so the foreman can punch in a quantity directly; the +/-
+          buttons stay for one-handed nudging. type="text" (not "number")
+          avoids the iOS spinner quirks while keeping the numeric keypad. */}
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label={copyDe["qty.label"]}
+        value={value}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/[^0-9]/g, "");
+          onChange(digits === "" ? min : Math.max(min, parseInt(digits, 10)));
+        }}
+        onFocus={(e) => e.currentTarget.select()}
+        className="h-11 w-12 rounded-xl border border-zinc-200 bg-white text-center text-base font-semibold tabular-nums text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+      />
       <button
         type="button"
         aria-label={copyDe["qty.plus"]}

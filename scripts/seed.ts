@@ -7,7 +7,7 @@
  *   - one project ("Baustelle Zürich-West")
  *   - one approval_rules row (threshold 200 CHF, restricted_groups=['paint'])
  *   - three profiles (foreman A, foreman B, procurement)
- *   - three material_sets (PPE, Trockenbau, Werkzeug) with items
+ *   - four material_sets (PPE, Trockenbau, Elektro, Maler) with items
  *   - 8–12 orders per foreman, trade-skewed, including one sub-threshold
  *     hazardous fixture for the restricted-group rule to fire on
  *
@@ -254,21 +254,34 @@ async function main() {
   );
 
   // -- material_sets --------------------------------------------------------
+  // Four kits across four distinct trades so the home grid feels varied:
+  // safety, drywall, electrical, painting.
   const kits = [
     {
+      // PSA für einen neuen Mann auf der Baustelle.
       name: "PPE-Set neuer Mitarbeiter",
-      skus: ["C073", "C022", "C019", "C024", "C021"],
-      qty: [1, 2, 1, 1, 1],
+      skus: ["C073", "C019", "C021", "C024", "C022", "C023"],
+      qty: [1, 2, 1, 1, 2, 5],
     },
     {
+      // Trockenbau: Schrauben, Dübel, Fugen.
       name: "Trockenbau-Set 50 m²",
-      skus: ["C003", "C005", "C032", "C033", "C027", "C036"],
-      qty: [200, 100, 5, 5, 2, 10],
+      skus: ["C003", "C005", "C027", "C036", "C041", "C042"],
+      qty: [200, 100, 2, 5, 3, 2],
     },
     {
-      name: "Werkzeug-Grundausstattung",
-      skus: ["C034", "C035", "C032", "C033", "C047", "C048"],
-      qty: [3, 2, 10, 10, 2, 5],
+      // Elektro-Erstausstattung für einen Bauabschnitt.
+      name: "Elektro-Set",
+      skus: ["C013", "C015", "C017", "C057", "C059", "C056"],
+      qty: [50, 3, 50, 1, 1, 1],
+    },
+    {
+      // Maler: Rollen, Pinsel, Abdeckung, Farbe. Die Farbe (Gruppe 'paint')
+      // ist eine 'restricted_group' — dieses Set löst bewusst eine Freigabe
+      // beim Einkauf aus und zeigt so den Approval-Flow.
+      name: "Maler-Set",
+      skus: ["C065", "C067", "C025", "C026", "C040", "C069"],
+      qty: [2, 3, 1, 3, 2, 2],
     },
   ];
   for (const kit of kits) {

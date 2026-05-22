@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, HardHat, Wrench } from "lucide-react";
+import { Boxes, HardHat, Paintbrush, Plug, Wrench } from "lucide-react";
 import { copyDe, formatCopy } from "@/lib/constants/copy.de";
 
 type Props = {
@@ -13,6 +13,10 @@ export function KitTile({ name, itemCount, onTap }: Props) {
   const lower = name.toLowerCase();
   const icon = lower.includes("ppe") ? (
     <HardHat className="h-5 w-5" />
+  ) : lower.includes("elektro") ? (
+    <Plug className="h-5 w-5" />
+  ) : lower.includes("maler") || lower.includes("farbe") ? (
+    <Paintbrush className="h-5 w-5" />
   ) : lower.includes("werkzeug") ? (
     <Wrench className="h-5 w-5" />
   ) : (

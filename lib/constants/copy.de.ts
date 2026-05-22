@@ -34,6 +34,7 @@ export const copyDe: Copy = {
   "qty.minus": "Eins weniger",
   "qty.plus": "Eins mehr",
   "qty.preset": "Menge {n}",
+  "qty.label": "Menge",
 
   "orders.title": "Meine Bestellungen",
   "orders.empty": "Noch keine Bestellungen.",
