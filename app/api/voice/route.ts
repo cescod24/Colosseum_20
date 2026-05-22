@@ -349,36 +349,60 @@ function buildSystemPrompt(opts: {
     "WARENKORB-AKTIONEN — sehr wichtig, NICHT vermischen:",
     "═══════════════════════════════════════════════════════════════",
     "Der Polier hat einen WARENKORB (siehe unten 'Aktueller Warenkorb').",
-    "Das ist eine andere Liste als dein aktueller Vorschlag (items).",
+    "Das ist eine ANDERE Liste als dein aktueller Vorschlag (items).",
     "",
-    "→ Wenn der Polier sagt 'entferne / togli / remove / wegnehmen / lösche'",
-    "  und der gemeinte Artikel IM WARENKORB ist (nicht im Vorschlag),",
-    "  setze seinen supplier_sku in 'cart_removals'. items bleibt unverändert.",
+    "═══════ PRIORITÄTS-REGEL — wenn der Polier sagt 'togli / remove /",
+    "entferne X' OHNE explizit den Warenkorb zu nennen: ═══════",
     "",
-    "→ Wenn der Polier sagt 'rimuovi quello che hai aggiunto al carrello' /",
-    "  'togli quello che ho appena aggiunto' / 'undo' / 'lösche alles aus",
-    "  dem Warenkorb': setze ALLE supplier_sku des Warenkorbs in",
-    "  cart_removals. Das macht den Warenkorb leer.",
+    "• Wenn ein AKTUELLER VORSCHLAG existiert (Refinement-Mode):",
+    "  → Das ist eine Anpassung des Vorschlags. Lass X aus items[] weg.",
+    "  → cart_removals MUSS LEER bleiben.",
     "",
-    "→ Wenn der Polier sagt 'togli le viti dal carrello' und der Warenkorb",
-    "  enthält 50× C003 Schraube TX25 + 2× C019 Handschuhe:",
-    "    cart_removals: [\"C003\"]",
-    "    items: [] (keine neuen Artikel)",
+    "• Wenn KEIN aktueller Vorschlag existiert UND X im Warenkorb steht:",
+    "  → Das ist eine Warenkorb-Aktion. Setze X in cart_removals.",
     "",
-    "→ Wenn der Polier sagt 'togli le viti dal carrello e aggiungi del",
-    "  silikon': aus dem Warenkorb entfernen + ein neues item vorschlagen:",
-    "    cart_removals: [\"C003\"]",
-    "    items: [{\"supplier_sku\": \"C039\", \"qty\": 2}]",
+    "• Nur wenn der Polier EXPLIZIT 'dal carrello' / 'from the cart' /",
+    "  'aus dem Warenkorb' / 'vom Warenkorb' sagt, ist es eine",
+    "  Warenkorb-Aktion auch während eines Refinements.",
     "",
-    "→ Wenn der Polier sagt 'aggiungi un'altra vite' und im Warenkorb sind",
-    "  schon 50× C003: das ist KEIN cart_removal — neue Empfehlung in items.",
+    "Default also: cart_removals = []. NUR setzen wenn explizit gewünscht.",
     "",
-    "→ Wenn der Polier eine ITEM-ZAHL im Warenkorb ändern will ('mach 20",
-    "  statt 50 Schrauben im Warenkorb'): Lege den NEUEN sku in items (+",
-    "  qty) und den ALTEN sku in cart_removals. Der Client ersetzt dann.",
+    "BEISPIELE:",
     "",
-    "Wenn der Polier nichts vom Warenkorb wegnehmen will, lass cart_removals",
-    "einfach leer. Default: leer.",
+    "→ Vorschlag aktiv: [200×C003 Schraube, 50×C005 Dübel]. Warenkorb: leer.",
+    "  Polier: 'togli le viti'.",
+    "  ✅ RICHTIG: items=[50×C005], cart_removals=[]",
+    "  ❌ FALSCH:  cart_removals=[\"C003\"]   (Warenkorb ist leer + nicht erwähnt)",
+    "",
+    "→ Vorschlag aktiv: [200×C003, 50×C005]. Warenkorb: [50×C003].",
+    "  Polier: 'togli le viti'   ← KEIN 'dal carrello'!",
+    "  ✅ RICHTIG: items=[50×C005], cart_removals=[]",
+    "  ❌ FALSCH:  cart_removals=[\"C003\"]   (Polier hat den Warenkorb nicht erwähnt)",
+    "",
+    "→ Vorschlag aktiv: [200×C003, 50×C005]. Warenkorb: [50×C003].",
+    "  Polier: 'togli le viti DAL CARRELLO'.",
+    "  ✅ RICHTIG: items=[200×C003, 50×C005] (Vorschlag unverändert),",
+    "             cart_removals=[\"C003\"]",
+    "",
+    "→ KEIN Vorschlag (Erstturn). Warenkorb: [50×C003 Schraube, 2×C019].",
+    "  Polier: 'togli le viti'.",
+    "  ✅ RICHTIG: items=[], cart_removals=[\"C003\"]   (ohne Vorschlag muss es",
+    "             eindeutig der Warenkorb sein)",
+    "",
+    "→ KEIN Vorschlag. Warenkorb: [50×C003, 2×C019].",
+    "  Polier: 'svuota il carrello' / 'lösche alles aus dem Warenkorb' /",
+    "          'togli quello che ho aggiunto':",
+    "  ✅ RICHTIG: cart_removals = [\"C003\",\"C019\"] (alle SKUs des Warenkorbs)",
+    "",
+    "→ Vorschlag aktiv: [200×C003]. Warenkorb: [50×C019].",
+    "  Polier: 'togli le viti dal carrello'.",
+    "  Achtung: 'viti' ist NICHT im Warenkorb (nur C019 Handschuhe sind drin).",
+    "  ✅ RICHTIG: cart_removals=[] (nichts passendes im Warenkorb),",
+    "             items=[200×C003] (Vorschlag unverändert)",
+    "",
+    "Wenn der Polier eine ITEM-ZAHL im Warenkorb ändern will ('mach 20 statt",
+    "50 Schrauben im Warenkorb'): Lege den NEUEN sku+qty in items und den",
+    "ALTEN sku in cart_removals. Der Client ersetzt dann.",
     "",
   ];
 
@@ -777,34 +801,64 @@ export async function POST(req: Request) {
   }
 
   // Resolve cart_removals: AI returns supplier_skus, client needs product_id.
-  // Only resolve against the catalog (so unknown SKUs are silently dropped).
-  // We also intersect with the actual cart so we never tell the client to
-  // remove something that isn't even there.
+  // Three safety nets layered on top of the prompt:
+  //   1. Only resolve against the catalog (drop unknown SKUs silently).
+  //   2. Intersect with the actual cart (drop SKUs not even in there).
+  //   3. If we're in REFINEMENT mode AND the transcript doesn't explicitly
+  //      mention the cart, drop cart_removals entirely. "togli le viti" by
+  //      itself during a refinement is a proposal edit, not a cart action —
+  //      otherwise the polier touches the cart unintentionally.
   const cartSkuSet = new Set<string>();
   for (const line of cartLines) {
     if (line.supplier_sku) cartSkuSet.add(line.supplier_sku);
-    // If client only sent product_ids, resolve via catalog
     else if (line.product_id) {
       const hit = catalog.find((c) => c.product_id === line.product_id);
       if (hit) cartSkuSet.add(hit.supplier_sku);
     }
   }
+  const transcriptLower = transcript.toLowerCase();
+  const mentionsCart =
+    transcriptLower.includes("carrello") ||
+    transcriptLower.includes("warenkorb") ||
+    transcriptLower.includes("from cart") ||
+    transcriptLower.includes("from the cart") ||
+    transcriptLower.includes("dal carrello") ||
+    transcriptLower.includes("aus dem warenkorb") ||
+    transcriptLower.includes("dem warenkorb") ||
+    transcriptLower.includes("vom warenkorb") ||
+    transcriptLower.includes("svuota") ||
+    transcriptLower.includes("leeren") ||
+    transcriptLower.includes("clear cart") ||
+    transcriptLower.includes("empty the cart");
+  const inRefinement = currentItemsWithNames.length > 0;
   const bySkuFinal = new Map(catalog.map((c) => [c.supplier_sku, c]));
   const cartRemovals: { product_id: string; supplier_sku: string; name: string }[] = [];
-  for (const sku of ai.cart_removals ?? []) {
-    if (!cartSkuSet.has(sku)) continue; // not in cart → ignore
-    const hit = bySkuFinal.get(sku);
-    if (!hit) continue;
-    cartRemovals.push({
-      product_id: hit.product_id,
-      supplier_sku: hit.supplier_sku,
-      name: hit.name,
-    });
-  }
-  if (cartRemovals.length > 0) {
-    console.log(
-      `[voice] cart_removals: ${cartRemovals.map((r) => r.supplier_sku).join(", ")}`,
-    );
+  if (inRefinement && !mentionsCart) {
+    // Refinement turn without explicit cart mention → ignore any
+    // cart_removals the model produced. This protects the polier from
+    // accidentally clearing their cart when they were only adjusting the
+    // proposal.
+    if ((ai.cart_removals ?? []).length > 0) {
+      console.log(
+        `[voice] dropping ${ai.cart_removals?.length} cart_removals (refinement turn without "carrello"/"warenkorb"/"cart" in transcript): ${ai.cart_removals?.join(", ")}`,
+      );
+    }
+  } else {
+    for (const sku of ai.cart_removals ?? []) {
+      if (!cartSkuSet.has(sku)) continue; // not in cart → ignore
+      const hit = bySkuFinal.get(sku);
+      if (!hit) continue;
+      cartRemovals.push({
+        product_id: hit.product_id,
+        supplier_sku: hit.supplier_sku,
+        name: hit.name,
+      });
+    }
+    if (cartRemovals.length > 0) {
+      console.log(
+        `[voice] cart_removals: ${cartRemovals.map((r) => r.supplier_sku).join(", ")}`,
+      );
+    }
   }
 
   const canned = !process.env.OPENAI_API_KEY || ai === fallback;
