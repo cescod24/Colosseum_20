@@ -9,13 +9,15 @@ import { Stepper } from "./Stepper";
 
 // Bottom drawer (mobile sheet) for the cart. Opens when the cart icon in
 // BottomNavBar is tapped. Owns no state itself — parent passes everything.
+// The foreman never sees prices (CLAUDE.md): no per-item price, no total —
+// procurement owns the cost side. The server recomputes the total + applies
+// the threshold on submit.
 
 type Props = {
   open: boolean;
   onClose: () => void;
   cart: Array<{ product_id: string; qty: number }>;
   productById: Map<string, CatalogProduct>;
-  total: number;
   state: "idle" | "sending" | "queued" | "error";
   online: boolean;
   onChangeQty: (product_id: string, qty: number) => void;
@@ -27,7 +29,6 @@ export function CartSheet({
   onClose,
   cart,
   productById,
-  total,
   state,
   online,
   onChangeQty,
@@ -129,9 +130,7 @@ export function CartSheet({
                 ? copyDe["cart.sending"]
                 : empty
                   ? copyDe["cart.empty"]
-                  : formatCopy(copyDe["cart.submit_with_total"], {
-                      total: total.toFixed(2),
-                    })}
+                  : copyDe["cart.submit"]}
             </span>
           </button>
         </footer>

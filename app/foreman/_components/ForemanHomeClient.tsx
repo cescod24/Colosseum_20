@@ -280,16 +280,6 @@ export function ForemanHomeClient({
     });
   }
 
-  const total = useMemo(() => {
-    let sum = 0;
-    for (const l of cart) {
-      const p = productById.get(l.product_id);
-      if (!p) continue;
-      sum += p.unit_price * l.qty;
-    }
-    return sum;
-  }, [cart, productById]);
-
   const onSubmit = useCallback(async () => {
     if (cart.length === 0) return;
     if (!online) {
@@ -496,7 +486,6 @@ export function ForemanHomeClient({
         onClose={() => setCartOpen(false)}
         cart={cart}
         productById={productById}
-        total={total}
         state={submitState}
         online={online}
         onChangeQty={setQty}

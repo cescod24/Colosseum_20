@@ -393,17 +393,6 @@ export function AssistantSheet({
     void startRecording();
   }
 
-  // Compute total of currently selected items.
-  const selectedTotal =
-    status.kind === "result"
-      ? status.items.reduce((sum, it) => {
-          const s = selected[it.product_id];
-          if (!s?.selected) return sum;
-          if (it.unit_price == null) return sum;
-          return sum + it.unit_price * s.qty;
-        }, 0)
-      : 0;
-
   const selectedCount =
     status.kind === "result"
       ? status.items.filter((it) => {
@@ -413,9 +402,9 @@ export function AssistantSheet({
       : 0;
 
   // Merge picked items into the cart and close. The final "Bestellung senden"
-  // happens in the CartSheet (foreman opens it from the bottom nav). This
-  // gives the foreman one last review with the total visible — and means we
-  // can drop the duplicate POST-/api/orders path here.
+  // happens in the CartSheet (foreman opens it from the bottom nav), which
+  // means we can drop the duplicate POST-/api/orders path here. The foreman
+  // never sees prices, so no total is shown on review.
   const applyToCart = useCallback(() => {
     if (status.kind !== "result") return;
     const picked = status.items.filter((it) => {
@@ -592,7 +581,7 @@ export function AssistantSheet({
               <span>
                 {selectedCount === 0
                   ? copyDe["assistant.no_match"]
-                  : `${copyDe["voice.apply"]} · ${selectedTotal.toFixed(2)} CHF`}
+                  : copyDe["voice.apply"]}
               </span>
             </button>
             <button

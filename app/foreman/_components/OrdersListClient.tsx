@@ -316,7 +316,7 @@ export function OrdersListClient({ initialOrders, profileId }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-sm font-semibold text-zinc-900">
-                        #{shortId(o.id)} · {o.total.toFixed(0)} {o.currency}
+                        #{shortId(o.id)}
                       </p>
                       <p className="text-[11px] text-zinc-500">
                         {formatCopy(copyDe["orders.items"], {

@@ -109,12 +109,6 @@ export function DiscoverClient({ projectId, catalog }: Props) {
     persistCart(cart);
   }, [cart]);
 
-  const productById = useMemo(() => {
-    const m = new Map<string, CatalogLite>();
-    for (const p of catalog) m.set(p.product_id, p);
-    return m;
-  }, [catalog]);
-
   const categoryItems = useMemo(() => {
     if (!selectedCategory) return [];
     return catalog
@@ -122,15 +116,6 @@ export function DiscoverClient({ projectId, catalog }: Props) {
       .slice(0, 20);
   }, [catalog, selectedCategory]);
 
-  const total = useMemo(() => {
-    let sum = 0;
-    for (const l of cart) {
-      const p = productById.get(l.product_id);
-      if (!p) continue;
-      sum += p.unit_price * l.qty;
-    }
-    return sum;
-  }, [cart, productById]);
 
   function addToCart(product_id: string, qty = 1) {
     setCart((prev) => {
@@ -444,7 +429,6 @@ export function DiscoverClient({ projectId, catalog }: Props) {
             ]),
           )
         }
-        total={total}
         state={submitState}
         online={true}
         onChangeQty={setQty}
