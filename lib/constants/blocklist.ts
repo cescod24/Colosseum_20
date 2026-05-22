@@ -9,13 +9,11 @@
 // matcher lowercases its input.
 
 export const A_MATERIAL_BLOCKLIST: readonly string[] = [
+  // DE
   "beton",
   "zement",
   "stahl",
   "bewehrung",
-  "rebar",
-  "concrete",
-  "steel",
   "schacht",
   "schachtring",
   "schachtdeckel",
@@ -24,6 +22,17 @@ export const A_MATERIAL_BLOCKLIST: readonly string[] = [
   "granit",
   "gneiss",
   "pflasterstein",
+  // EN
+  "rebar",
+  "concrete",
+  "cement",
+  "steel",
+  // IT
+  "cemento",
+  "calcestruzzo",
+  "acciaio",
+  "tondini",
+  "armatura",
 ];
 
 export function isABlockedTerm(input: string): boolean {

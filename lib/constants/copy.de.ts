@@ -30,6 +30,7 @@ export const copyDe: Copy = {
 
   "kits.items": "{count} Artikel",
   "kits.added": "{name} in den Warenkorb gelegt.",
+  "kits.added_inline": "Im Warenkorb",
 
   "qty.minus": "Eins weniger",
   "qty.plus": "Eins mehr",

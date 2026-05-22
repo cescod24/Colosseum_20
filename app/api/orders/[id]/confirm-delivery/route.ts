@@ -48,7 +48,15 @@ export async function POST(
 
   const { id: orderId } = await params;
 
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "Multipart body with a 'photo' file is required." },
+      { status: 400 },
+    );
+  }
   const file = form.get("photo");
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: "Photo required." }, { status: 400 });
