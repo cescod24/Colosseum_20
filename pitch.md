@@ -139,9 +139,10 @@ firm and you have a quiet six-figure leak.
 | **Annual procurement savings / company** | **~8 000 CHF** | **~16 000 CHF** |
 | **Combined / company / year** | **~74 000 CHF** | **~176 000 CHF** |
 
-Frame the slide as "**we give Stefan back ~4 hours a week and Anna
-back ~2** — that's 74 000 CHF a year for a single 50-Polier firm,
-and the gap only widens with scale."
+Frame the slide as "**200 orders × 5 minutes saved × 80 CHF/hour =
+66 000 CHF per company per year on the foreman side alone.** Add
+Anna's tail-spend triage and the combined number clears 74 000 CHF
+— for a single 50-Polier firm, and the gap only widens with scale."
 
 ---
 
@@ -230,11 +231,12 @@ judge.
    *"Anna onboards a supplier in one click and sees tail-spend
    the moment it lands."*
 
-9. **03:40 — Mention-only.** *(Don't click — narrate over the
-   dashboard.)* "We block A-materials at search, at ingest, and
-   inside the AI prompt — Stefan can't accidentally order
+9. **03:40 — Mention-only.** *(Stay on Anna's dashboard — no
+   window switch.)* "We block A-materials at search, at ingest,
+   and inside the AI prompt — Stefan can't accidentally order
    concrete here; he gets a friendly redirect to his Bauleiter
-   instead." Show `/foreman/info` if there's a free beat.
+   instead. There's also a plain-language `/foreman/info` page he
+   can open from the home — onboarding is part of the product."
 
 10. **04:00 — Slide 5 close.** ROI + ask (see §10).
 
@@ -346,6 +348,9 @@ opening clause for: *"We did — for the foreman home.
 After `npm run dev` (or `npm run dev:https`) starts, in PowerShell:
 
 ```powershell
+# If you started with `npm run dev:https`, swap http → https in the URL.
+# Self-signed cert is trusted on the laptop where it was generated, so no
+# extra flags needed.
 $cookie = "x-demo-user=foreman-a"
 Invoke-WebRequest http://localhost:3000/api/orders/list -Headers @{Cookie=$cookie}
 ```
