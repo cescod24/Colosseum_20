@@ -26,13 +26,31 @@ const tlsOptions = {
 };
 
 function forwardRequest(req, res) {
+  // Server Actions CSRF: Next.js compares the `Origin` header (e.g.
+  // https://192.168.168.75:3443) against the `Host` / `x-forwarded-host`.
+  // If we rewrote `host` to 127.0.0.1:3000 here, Next would see a mismatch
+  // and refuse with "Invalid Server Actions request" (500). So we preserve
+  // the client's `host` and pass explicit x-forwarded-* headers — that's
+  // what proxies are supposed to do.
+  const clientHost = req.headers.host ?? `${HTTP_TARGET_HOST}:${HTTP_TARGET_PORT}`;
+  const headers = {
+    ...req.headers,
+    host: clientHost,
+    "x-forwarded-host": clientHost,
+    "x-forwarded-proto": "https",
+    "x-forwarded-for":
+      (req.headers["x-forwarded-for"]
+        ? `${req.headers["x-forwarded-for"]}, `
+        : "") + (req.socket?.remoteAddress ?? "127.0.0.1"),
+  };
+
   const proxyReq = httpRequest(
     {
       hostname: HTTP_TARGET_HOST,
       port: HTTP_TARGET_PORT,
       method: req.method,
       path: req.url,
-      headers: { ...req.headers, host: `${HTTP_TARGET_HOST}:${HTTP_TARGET_PORT}` },
+      headers,
     },
     (proxyRes) => {
       res.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers);
