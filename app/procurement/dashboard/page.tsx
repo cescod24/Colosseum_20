@@ -72,6 +72,35 @@ function fmtCurrency(value: number, currency: string) {
   }).format(value);
 }
 
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: "amber" | "emerald";
+}) {
+  const valueClass =
+    accent === "amber"
+      ? "text-amber-700"
+      : accent === "emerald"
+        ? "text-emerald-700"
+        : "text-zinc-900";
+  return (
+    <div className="min-w-0 rounded-xl bg-white px-3 py-2 text-center shadow-sm ring-1 ring-zinc-100">
+      <p
+        className={`text-xl font-semibold leading-tight sm:text-2xl ${valueClass}`}
+      >
+        {value}
+      </p>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const role = await getDemoRole();
   const profile = role ? await resolveProfileForRole(role) : null;
@@ -173,30 +202,53 @@ export default async function DashboardPage() {
     .limit(40);
   const recap = (recapRaw ?? []) as unknown as RecapRow[];
 
+  const ordersThisProject = recap.length;
+  const decidedCount = recap.filter((r) => r.decided_at !== null).length;
+  const pendingCount = recap.filter((r) => r.status === "pending").length;
+
   return (
-    <section className="space-y-8">
+    <section className="space-y-6">
       <RefreshPoller intervalMs={3000} />
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          {copyEn["dashboard.title"]}
-        </h1>
-        <p className="text-sm text-zinc-500">
-          {project?.name ?? ""} · {copyEn["dashboard.subtitle"]} ·{" "}
-          {fmtCurrency(round(total), currency)} total
-        </p>
+
+      {/* Hero — big number first, eyebrow, then meta line */}
+      <header className="space-y-3">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Procurement · Spend dashboard
+          </p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
+                {fmtCurrency(round(total), currency)}
+              </p>
+              <p className="text-sm text-zinc-500">
+                {project?.name ?? "—"} · {copyEn["dashboard.subtitle"]}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <Stat label="Orders" value={ordersThisProject} />
+              <Stat label="Decided" value={decidedCount} />
+              <Stat
+                label="Pending"
+                value={pendingCount}
+                accent={pendingCount > 0 ? "amber" : undefined}
+              />
+            </div>
+          </div>
+        </div>
       </header>
 
-      <article className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <div className="mt-0.5 h-2 w-2 flex-none rounded-full bg-amber-500"></div>
+      <article className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50/50 p-4 text-sm text-amber-900 shadow-sm">
+        <div className="mt-0.5 h-2 w-2 flex-none rounded-full bg-amber-500 ring-4 ring-amber-100"></div>
         <div className="flex-1 space-y-1">
           <p className="font-semibold">{copyEn["dashboard.alert_title"]}</p>
-          <p>{copyEn["dashboard.alert_body"]}</p>
+          <p className="text-amber-900/85">{copyEn["dashboard.alert_body"]}</p>
         </div>
         <a
           href="/procurement/queue"
-          className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-900 hover:border-amber-500"
+          className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 shadow-sm hover:border-amber-500 hover:bg-amber-50"
         >
-          {copyEn["dashboard.alert_cta"]}
+          {copyEn["dashboard.alert_cta"]} →
         </a>
       </article>
 

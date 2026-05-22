@@ -109,65 +109,79 @@ export default async function ProjectRulesPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-900">
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Procurement
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           {copyEn["project.title"]}
         </h1>
-        <p className="text-sm text-zinc-500">{project.name}</p>
+        <p className="text-sm text-zinc-500">
+          <span className="font-medium text-zinc-700">{project.name}</span> ·
+          approval rules that drive every foreman order
+        </p>
       </header>
 
       <form
         action={saveProjectRules}
-        className="space-y-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
+        className="space-y-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8"
       >
         <input type="hidden" name="projectId" value={project.id} />
 
-        <div className="space-y-2">
+        <div className="space-y-2 border-l-2 border-amber-400 pl-4">
           <label
             htmlFor="threshold"
-            className="block text-sm font-medium text-zinc-900"
+            className="block text-sm font-semibold text-zinc-900"
           >
             {copyEn["project.threshold_label"]}
           </label>
-          <input
-            id="threshold"
-            name="threshold"
-            type="number"
-            min={0}
-            step={1}
-            defaultValue={Number(project.auto_approve_threshold)}
-            className="w-full max-w-xs rounded-lg border border-zinc-300 px-3 py-2 text-base shadow-sm focus:border-zinc-900 focus:outline-none"
-          />
           <p className="text-xs text-zinc-500">
             {copyEn["project.threshold_help"]}
           </p>
+          <div className="flex items-center gap-2">
+            <input
+              id="threshold"
+              name="threshold"
+              type="number"
+              min={0}
+              step={1}
+              defaultValue={Number(project.auto_approve_threshold)}
+              className="w-full max-w-[8rem] rounded-lg border border-zinc-300 px-3 py-2 text-lg font-semibold text-zinc-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+            />
+            <span className="text-sm font-medium text-zinc-500">CHF</span>
+          </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 border-l-2 border-rose-400 pl-4">
           <label
             htmlFor="restricted_groups"
-            className="block text-sm font-medium text-zinc-900"
+            className="block text-sm font-semibold text-zinc-900"
           >
             {copyEn["project.restricted_groups_label"]}
           </label>
+          <p className="text-xs text-zinc-500">
+            {copyEn["project.restricted_groups_help"]}
+          </p>
           <input
             id="restricted_groups"
             name="restricted_groups"
             type="text"
             defaultValue={restrictedGroups}
-            placeholder="Hazardous, Explosives"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-base shadow-sm focus:border-zinc-900 focus:outline-none"
+            placeholder="hazardous, paint, explosives"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
           />
-          <p className="text-xs text-zinc-500">
-            {copyEn["project.restricted_groups_help"]}
-          </p>
         </div>
 
-        <button
-          type="submit"
-          className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-        >
-          {copyEn["project.save"]}
-        </button>
+        <div className="flex items-center justify-between border-t border-zinc-100 pt-4">
+          <p className="text-xs text-zinc-500">
+            Changes apply to the next foreman submission.
+          </p>
+          <button
+            type="submit"
+            className="rounded-lg bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-zinc-700"
+          >
+            {copyEn["project.save"]}
+          </button>
+        </div>
       </form>
     </section>
   );

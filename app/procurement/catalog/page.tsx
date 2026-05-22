@@ -117,15 +117,25 @@ export default async function CatalogPage() {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-900">
-          {copyEn["catalog.title"]}
-        </h1>
-        <p className="text-sm text-zinc-500">
-          {copyEn["catalog.subtitle"]} · {products.length}
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Procurement
         </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+              {copyEn["catalog.title"]}
+            </h1>
+            <p className="text-sm text-zinc-500">
+              {copyEn["catalog.subtitle"]}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            {products.length} active
+          </span>
+        </div>
       </header>
 
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
