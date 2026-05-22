@@ -37,9 +37,9 @@ type CallOptions<T> = {
   /** MIME type for the image; defaults to image/jpeg. */
   imageMimeType?: string;
   /**
-   * Per-call model override. Falls back to OPENAI_MODEL env var or
-   * "gpt-4o-mini". Lets the voice assistant opt into a stronger model
-   * (gpt-4o) without affecting ingest/discover.
+   * Per-call model override. Falls back to OPENAI_MODEL env var (default
+   * "gpt-4o"). Lets a caller (e.g. the voice assistant) run on a different
+   * model without affecting ingest/discover.
    */
   model?: string;
   /** Returned verbatim if no key / timeout / error / parse-fail. */

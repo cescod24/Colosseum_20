@@ -595,10 +595,10 @@ export async function POST(req: Request) {
   });
   const userText = `Polier sagt: "${transcript}"\n\nReturn JSON only.`;
 
-  // Voice gets its own model env var so the user can opt into gpt-4o
-  // (sharper, ~10× more expensive) for the assistant only, leaving
-  // ingest/discover on gpt-4o-mini. Defaults to OPENAI_MODEL (gpt-4o-mini)
-  // when unset, so no behaviour change without explicit opt-in.
+  // Voice gets its own model env var so the assistant can run on a
+  // different model from ingest/discover if needed. Defaults to
+  // OPENAI_MODEL (gpt-4o) when unset, so no behaviour change without
+  // an explicit OPENAI_VOICE_MODEL opt-in.
   const voiceModel = process.env.OPENAI_VOICE_MODEL || undefined;
 
   const ai = await callAI<AiAssistantReply>({
