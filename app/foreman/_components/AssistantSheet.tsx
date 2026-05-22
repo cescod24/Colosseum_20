@@ -106,11 +106,19 @@ export function AssistantSheet({
   // See plan.md §13.4b — never read React state inside rec.onstop; the React
   // closure is stale by the time the callback fires. Use this ref instead.
   const recordingStartedAtRef = useRef<number | null>(null);
+  // When the polier continues talking after a first result, we POST the
+  // current items as refinement context so the server preserves anything
+  // the polier didn't mention. Set when result lands, cleared on Add-to-cart
+  // / discard / close.
+  const refineItemsRef = useRef<{ supplier_sku: string; qty: number }[] | null>(
+    null,
+  );
 
   // Reset when closing.
   useEffect(() => {
     if (!open) {
       stopStream();
+      refineItemsRef.current = null;
       // setState-in-effect is intentional — we're resetting the sheet's
       // transient state when the sheet closes. Same pattern Dev B uses for
       // the per-line decisions panel.
@@ -131,6 +139,7 @@ export function AssistantSheet({
 
   const handleResponse = useCallback((body: AssistantResponse) => {
     if (body.redirect) {
+      refineItemsRef.current = null;
       setStatus({
         kind: "blocked",
         transcript: body.transcript,
@@ -139,6 +148,8 @@ export function AssistantSheet({
       return;
     }
     if (body.items.length === 0) {
+      // Keep refineItemsRef intact — the polier might rephrase and we still
+      // want the next turn to know what was on the table.
       setStatus({
         kind: "error",
         message: body.reply || copyDe["assistant.no_match"],
@@ -149,6 +160,11 @@ export function AssistantSheet({
     const sel: SelectedMap = {};
     for (const it of body.items) sel[it.product_id] = { selected: true, qty: it.qty };
     setSelected(sel);
+    // Remember the proposal so a follow-up voice/text turn can refine it.
+    refineItemsRef.current = body.items.map((i) => ({
+      supplier_sku: i.supplier_sku,
+      qty: i.qty,
+    }));
     setStatus({
       kind: "result",
       transcript: body.transcript,
@@ -162,6 +178,7 @@ export function AssistantSheet({
   const sendRequest = useCallback(
     async (init: { audioBlob?: Blob; userText?: string }, mimeType?: string) => {
       setStatus({ kind: "processing" });
+      const refineItems = refineItemsRef.current;
       try {
         let res: Response;
         if (init.audioBlob) {
@@ -173,6 +190,9 @@ export function AssistantSheet({
           );
           if (projectId) form.append("project_id", projectId);
           form.append("cart", JSON.stringify(cart));
+          if (refineItems && refineItems.length > 0) {
+            form.append("current_items", JSON.stringify(refineItems));
+          }
           res = await fetch("/api/voice", { method: "POST", body: form });
         } else {
           res = await fetch("/api/voice", {
@@ -182,6 +202,7 @@ export function AssistantSheet({
               text: init.userText,
               project_id: projectId,
               cart,
+              current_items: refineItems ?? undefined,
             }),
           });
         }
@@ -320,6 +341,7 @@ export function AssistantSheet({
       const qty = selected[it.product_id]?.qty ?? it.qty;
       addToCart(it.product_id, qty);
     }
+    refineItemsRef.current = null;
     setStatus({ kind: "applied", count: picked.length });
     // brief confirmation then close so the foreman sees the cart-icon red dot
     setTimeout(() => onClose(), 900);
@@ -436,9 +458,44 @@ export function AssistantSheet({
           )}
         </div>
 
-        {/* Result → "In den Warenkorb" footer; other states → input or close */}
+        {/* Result → refinement input + "In den Warenkorb" footer */}
         {status.kind === "result" ? (
-          <footer className="space-y-2 border-t border-zinc-100 bg-white px-4 py-3 pb-6">
+          <footer className="space-y-3 border-t border-zinc-100 bg-white px-4 py-3 pb-6">
+            <p className="text-center text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              {copyDe["assistant.refine_hint"]}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendText();
+                  }
+                }}
+                placeholder={copyDe["assistant.refine_placeholder"]}
+                className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={sendText}
+                disabled={!text.trim()}
+                aria-label={copyDe["assistant.send"]}
+                className="rounded-xl bg-zinc-900 px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onMicTap}
+                aria-label={copyDe["assistant.start_listening"]}
+                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 text-white shadow-sm transition-transform active:scale-95"
+              >
+                <Mic className="h-5 w-5" />
+              </button>
+            </div>
             <button
               type="button"
               onClick={applyToCart}
@@ -455,6 +512,7 @@ export function AssistantSheet({
             <button
               type="button"
               onClick={() => {
+                refineItemsRef.current = null;
                 setStatus({ kind: "idle" });
                 setSelected({});
               }}

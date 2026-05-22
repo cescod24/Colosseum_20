@@ -134,6 +134,10 @@ export const copyDe: Copy = {
     "Konnte nichts im Katalog finden. Versuch's nochmal oder benutz die Suche.",
   "assistant.permission_denied":
     "Mikrofon-Zugriff verweigert — in den Browser-Einstellungen erlauben oder einfach tippen.",
+  "assistant.refine_hint":
+    "Weiter sprechen oder tippen, um anzupassen",
+  "assistant.refine_placeholder":
+    "z.B. '100 Schrauben', '+ Bohrer', 'ohne Tape'",
   "assistant.mic_insecure":
     "Mikrofon braucht HTTPS. Öffne die App über die HTTPS-Adresse (Zertifikat einmal bestätigen), oder benutze die Texteingabe.",
   "assistant.mic_not_found":

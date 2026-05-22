@@ -227,6 +227,7 @@ function buildSystemPrompt(opts: {
   cartLines: Array<{ supplier_sku: string; name: string; qty: number }>;
   threshold: number;
   transcript: string;
+  currentItems?: Array<{ supplier_sku: string; name: string; qty: number }>;
 }): string {
   // Prioritise relevant rows first so they land within the prompt budget,
   // then group by product_group so the model sees related items together.
@@ -258,7 +259,11 @@ function buildSystemPrompt(opts: {
       : opts.cartLines
           .map((l) => `- ${l.qty}× ${l.supplier_sku} ${l.name}`)
           .join("\n");
-  return [
+  const isRefine = !!opts.currentItems && opts.currentItems.length > 0;
+  const currentList = isRefine
+    ? opts.currentItems!.map((l) => `- ${l.qty}× ${l.supplier_sku} ${l.name}`).join("\n")
+    : "";
+  const lines: string[] = [
     "Du bist der Polier-Ordnungsassistent für die Baustelle Zürich-West.",
     "Der Polier hat KEINE Zeit zu plaudern. Er sagt was er braucht oder",
     "was er macht — du antwortest IMMER mit einer konkreten Bestellungs-",
@@ -282,6 +287,19 @@ function buildSystemPrompt(opts: {
     "- KEINE leere items-Liste. Wenn nichts perfekt passt, wähle 1–3",
     "  plausible Artikel.",
     "",
+    "PRÄZISIONS-REGELN (gegen Faulheit / immer-gleiche Antworten):",
+    "- Nutze den GANZEN Katalog. Wähle NICHT immer dieselben Top-SKUs",
+    "  (C003 Schraube TX25, C019 Handschuhe, C027 Panzertape).",
+    "- Wenn der Polier eine spezifische Kategorie nennt (PSA, Tools,",
+    "  Klebeband, Sealants, Cleaning, Electrical), ziehe items NUR aus",
+    "  dieser product_group im Katalog. Mische Gruppen nur wenn die",
+    "  Aufgabe das verlangt (z.B. 'Tür einbauen' = fasteners + sealants).",
+    "- Bei einer konkreten Produktanfrage (z.B. 'Stichsägeblatt',",
+    "  'Wasserwaage', 'Spachtel'): suche das spezifische SKU im Katalog",
+    "  und nimm es. Default nur wenn der Suchbegriff wirklich generisch ist.",
+    "- Wiederhole NIE dieselbe Empfehlung aus dem 'Aktueller Vorschlag'",
+    "  unten unverändert, wenn der Polier neue Wünsche äußert.",
+    "",
     "MENGEN-REGELN (sehr wichtig):",
     '- Wenn der Polier eine Zahl sagt ("500 Schrauben", "drei Tuben",',
     '  "vier Rollen Tape", "fünfhundert"), NIMM DIESE EXAKTE ZAHL.',
@@ -295,15 +313,49 @@ function buildSystemPrompt(opts: {
     "SPRACHE: Der Polier kann auf Deutsch, Italienisch oder Englisch sprechen.",
     "Verstehe alle drei und antworte immer auf Deutsch.",
     "",
-    "BEISPIELE (Aufgabe → empfohlene Artikel):",
-    '- "Fenster abdichten" → Silikon transparent, Reinigungsalkohol, Panzertape',
-    '- "PSA neuer Mitarbeiter" → Handschuhe, Helm, Schutzbrille, Warnweste, Gehörschutz',
-    '- "Tür einbauen" / "porta da montare" → Schrauben TX25, Dübel 8mm, Silikon, Bohrer 8mm',
-    '- "Trockenbau 50 m²" → Schrauben TX25, Dübel, Spachtel, Spachtelmasse, Klebeband',
-    '- "Werkzeug nachbestellen" → Bits TX20+TX25, Bohrer, Wasserwaage, Zollstock',
-    '- "Kabel verlegen" → Kabelbinder, Isolierband, Installationsdraht',
-    '- "500 Schrauben TX25" → 500× C003 (genau diese Menge)',
-    "",
+  ];
+
+  if (isRefine) {
+    lines.push(
+      "REFINEMENT-MODUS (sehr wichtig):",
+      "Du hast bereits eine Empfehlung gegeben. Der Polier möchte sie",
+      "anpassen. AKTUELLER VORSCHLAG:",
+      currentList,
+      "",
+      "Regeln für die Anpassung:",
+      '- Wenn der Polier eine Menge ändert ("mach 100 Schrauben, nicht 50",',
+      '  "doppelt so viele Handschuhe", "nur 1 Bohrer"): aktualisiere',
+      "  die qty des entsprechenden SKUs in items. Andere items unverändert lassen.",
+      '- Wenn der Polier ein item HINZUFÜGT ("auch noch ein Silikon",',
+      '  "und 5 Schraubendreher"): füge das neue SKU zu items hinzu. Alle',
+      "  bestehenden items bleiben.",
+      '- Wenn der Polier ein item ENTFERNEN möchte ("entferne den Bohrer",',
+      '  "ohne Tape", "den letzten brauche ich nicht"): lass das SKU aus',
+      "  der neuen items-Liste weg.",
+      "- Bei einer komplett neuen Anforderung (z.B. der Polier nennt eine",
+      "  ganz neue Aufgabe wie 'Fenster abdichten'): generiere eine neue",
+      "  Liste, ignoriere den aktuellen Vorschlag.",
+      "- WICHTIG: items in der Antwort ist die VOLLSTÄNDIGE neue Liste,",
+      "  nicht nur die Änderungen. Wenn der Polier 'mach 100 Schrauben'",
+      "  sagt und im Vorschlag auch Tape stand, MUSS Tape weiterhin in",
+      "  items stehen.",
+      "",
+    );
+  } else {
+    lines.push(
+      "BEISPIELE (Aufgabe → empfohlene Artikel):",
+      '- "Fenster abdichten" → Silikon transparent, Reinigungsalkohol, Panzertape',
+      '- "PSA neuer Mitarbeiter" → Handschuhe, Helm, Schutzbrille, Warnweste, Gehörschutz',
+      '- "Tür einbauen" / "porta da montare" → Schrauben TX25, Dübel 8mm, Silikon, Bohrer 8mm',
+      '- "Trockenbau 50 m²" → Schrauben TX25, Dübel, Spachtel, Spachtelmasse, Klebeband',
+      '- "Werkzeug nachbestellen" → Bits TX20+TX25, Bohrer, Wasserwaage, Zollstock',
+      '- "Kabel verlegen" → Kabelbinder, Isolierband, Installationsdraht',
+      '- "500 Schrauben TX25" → 500× C003 (genau diese Menge)',
+      "",
+    );
+  }
+
+  lines.push(
     `Genehmigungsschwelle: ${opts.threshold} CHF. Erwähne das NICHT im reply.`,
     "",
     "Aktueller Warenkorb des Poliers (NICHT doppelt empfehlen):",
@@ -311,7 +363,8 @@ function buildSystemPrompt(opts: {
     "",
     "Katalog (supplier_sku\tname (unit, group, preis, gefahrgut)):",
     promptCatalog,
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 function resolveItems(
@@ -369,12 +422,30 @@ function safeJson(s: string | null): unknown {
 // POST handler
 // ---------------------------------------------------------------------------
 
+type CurrentItem = { supplier_sku: string; qty: number };
+
 type Parsed = {
   transcript: string;
   projectId?: string;
   cart: CartLineLite[];
+  currentItems: CurrentItem[];
   tooShort?: boolean;
 };
+
+function parseCurrentItems(raw: unknown): CurrentItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CurrentItem[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const obj = r as Record<string, unknown>;
+    const sku = typeof obj.supplier_sku === "string" ? obj.supplier_sku : null;
+    const qty = Number(obj.qty);
+    if (sku && Number.isFinite(qty) && qty > 0 && qty < 10000) {
+      out.push({ supplier_sku: sku, qty: Math.round(qty) });
+    }
+  }
+  return out.slice(0, 8);
+}
 
 async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
   const ct = req.headers.get("content-type") ?? "";
@@ -388,6 +459,8 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
     const audio = form.get("audio");
     const projectId = (form.get("project_id") as string | null) ?? undefined;
     const cartJson = (form.get("cart") as string | null) ?? null;
+    const currentItemsJson =
+      (form.get("current_items") as string | null) ?? null;
     if (!(audio instanceof File) || audio.size === 0) {
       return NextResponse.json({ error: "audio required" }, { status: 400 });
     }
@@ -395,15 +468,16 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
       return NextResponse.json({ error: "audio too large" }, { status: 413 });
     }
     const cart = Array.isArray(safeJson(cartJson)) ? (safeJson(cartJson) as CartLineLite[]) : [];
+    const currentItems = parseCurrentItems(safeJson(currentItemsJson));
     if (audio.size < MIN_BYTES) {
-      return { transcript: "", projectId, cart, tooShort: true };
+      return { transcript: "", projectId, cart, currentItems, tooShort: true };
     }
     const transcript = await transcribeAudio({
       file: audio,
       language: "de",
       fallback: CANNED_VOICE_TRANSCRIPT,
     });
-    return { transcript, projectId, cart };
+    return { transcript, projectId, cart, currentItems };
   }
   // JSON text path
   let body: unknown;
@@ -419,6 +493,7 @@ async function parseRequest(req: Request): Promise<Parsed | NextResponse> {
     transcript: text,
     projectId: typeof obj.project_id === "string" ? obj.project_id : undefined,
     cart: Array.isArray(obj.cart) ? (obj.cart as CartLineLite[]) : [],
+    currentItems: parseCurrentItems(obj.current_items),
   };
 }
 
@@ -426,7 +501,7 @@ export async function POST(req: Request) {
   const parsed = await parseRequest(req);
   if (parsed instanceof NextResponse) return parsed;
 
-  const { transcript, projectId, cart: cartLines, tooShort } = parsed;
+  const { transcript, projectId, cart: cartLines, currentItems, tooShort } = parsed;
 
   if (tooShort) {
     const body: AssistantResponse = {
@@ -465,6 +540,16 @@ export async function POST(req: Request) {
   }
   const cartSummary = summariseCart(cartLines, catalog);
 
+  // Resolve current items (refinement context) to name+sku+qty for the prompt
+  const bySkuForRefine = new Map(catalog.map((c) => [c.supplier_sku, c]));
+  const currentItemsWithNames = currentItems
+    .map((it) => {
+      const hit = bySkuForRefine.get(it.supplier_sku);
+      if (!hit) return null;
+      return { supplier_sku: it.supplier_sku, name: hit.name, qty: it.qty };
+    })
+    .filter((x): x is { supplier_sku: string; name: string; qty: number } => x !== null);
+
   // LLM call (with canned fallback)
   const fallback: AiAssistantReply = { ...cannedAssistantFor(transcript) };
   const system = buildSystemPrompt({
@@ -472,6 +557,7 @@ export async function POST(req: Request) {
     cartLines: cartSummary,
     threshold: 200,
     transcript,
+    currentItems: currentItemsWithNames.length > 0 ? currentItemsWithNames : undefined,
   });
   const userText = `Polier sagt: "${transcript}"\n\nReturn JSON only.`;
 
