@@ -496,6 +496,52 @@ export function AssistantSheet({
                 {copyDe["assistant.refine_examples"]}
               </p>
             </div>
+            {/* Mic = main action: big circular button on top. Text input
+                is the fallback for "I can't talk right now." */}
+            <div className="flex flex-col items-center gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={onMicTap}
+                aria-label={
+                  recording
+                    ? copyDe["assistant.stop_listening"]
+                    : copyDe["assistant.start_listening"]
+                }
+                disabled={processing || applied}
+                className={
+                  "flex h-16 w-16 items-center justify-center rounded-full shadow-md ring-4 ring-white transition-all active:scale-95 " +
+                  (recording
+                    ? "bg-rose-600 text-white animate-pulse"
+                    : processing || applied
+                      ? "bg-zinc-300 text-zinc-500"
+                      : "bg-gold text-zinc-900 hover:scale-105")
+                }
+              >
+                {recording ? (
+                  <Square className="h-6 w-6" fill="currentColor" />
+                ) : processing || applied ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Mic className="h-7 w-7" />
+                )}
+              </button>
+              <span
+                className={
+                  "text-[11px] font-medium " +
+                  (recording
+                    ? "text-rose-700"
+                    : processing || applied
+                      ? "text-zinc-500"
+                      : "text-zinc-700")
+                }
+              >
+                {recording
+                  ? copyDe["voice.recording"]
+                  : processing || applied
+                    ? copyDe["voice.processing"]
+                    : copyDe["assistant.start_listening"]}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -508,24 +554,16 @@ export function AssistantSheet({
                   }
                 }}
                 placeholder={copyDe["assistant.refine_placeholder"]}
-                className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+                className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={sendText}
                 disabled={!text.trim()}
                 aria-label={copyDe["assistant.send"]}
-                className="rounded-xl bg-brand px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
+                className="rounded-xl bg-brand px-3 py-1.5 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
               >
                 <Send className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={onMicTap}
-                aria-label={copyDe["assistant.start_listening"]}
-                className="flex h-10 w-12 items-center justify-center rounded-xl bg-gold text-zinc-900 shadow-sm transition-transform active:scale-95"
-              >
-                <Mic className="h-5 w-5" />
               </button>
             </div>
             <button
@@ -564,7 +602,53 @@ export function AssistantSheet({
             </button>
           </footer>
         ) : (
-          <footer className="border-t border-zinc-100 bg-white px-4 py-3 pb-6">
+          <footer className="space-y-3 border-t border-zinc-100 bg-white px-4 py-3 pb-6">
+            {/* Mic = main action: big circular button on top. Text input
+                stays as a thin fallback for "I can't talk right now." */}
+            <div className="flex flex-col items-center gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={onMicTap}
+                aria-label={
+                  recording
+                    ? copyDe["assistant.stop_listening"]
+                    : copyDe["assistant.start_listening"]
+                }
+                disabled={processing || applied}
+                className={
+                  "flex h-16 w-16 items-center justify-center rounded-full shadow-md ring-4 ring-white transition-all active:scale-95 " +
+                  (recording
+                    ? "bg-rose-600 text-white animate-pulse"
+                    : processing || applied
+                      ? "bg-zinc-300 text-zinc-500"
+                      : "bg-gold text-zinc-900 hover:scale-105")
+                }
+              >
+                {recording ? (
+                  <Square className="h-6 w-6" fill="currentColor" />
+                ) : processing || applied ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <Mic className="h-7 w-7" />
+                )}
+              </button>
+              <span
+                className={
+                  "text-[11px] font-medium " +
+                  (recording
+                    ? "text-rose-700"
+                    : processing || applied
+                      ? "text-zinc-500"
+                      : "text-zinc-700")
+                }
+              >
+                {recording
+                  ? copyDe["voice.recording"]
+                  : processing || applied
+                    ? copyDe["voice.processing"]
+                    : copyDe["assistant.start_listening"]}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -577,7 +661,7 @@ export function AssistantSheet({
                   }
                 }}
                 placeholder={copyDe["assistant.placeholder"]}
-                className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+                className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-700 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
                 disabled={lockInput}
               />
               <button
@@ -585,35 +669,9 @@ export function AssistantSheet({
                 onClick={sendText}
                 disabled={!text.trim() || lockInput}
                 aria-label={copyDe["assistant.send"]}
-                className="rounded-xl bg-brand px-3 py-2 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
+                className="rounded-xl bg-brand px-3 py-1.5 text-white shadow-sm disabled:bg-zinc-200 disabled:text-zinc-400"
               >
                 <Send className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={onMicTap}
-                aria-label={
-                  recording
-                    ? copyDe["assistant.stop_listening"]
-                    : copyDe["assistant.start_listening"]
-                }
-                disabled={processing || applied}
-                className={
-                  "flex h-10 w-12 items-center justify-center rounded-xl shadow-sm transition-colors " +
-                  (recording
-                    ? "bg-rose-600 text-white animate-pulse"
-                    : processing || applied
-                      ? "bg-zinc-300 text-zinc-500"
-                      : "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-700 text-white")
-                }
-              >
-                {recording ? (
-                  <Square className="h-4 w-4" fill="currentColor" />
-                ) : processing || applied ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
               </button>
             </div>
           </footer>
